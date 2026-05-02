@@ -1,7 +1,7 @@
 /**
  * Curated Feed page — shares the Viewer's post layout (same classes, same
  * read-more / carousel / stats markup) and layers curator-specific bits on
- * top: a pack selector, category filter chips, score pill + filter_reason
+ * top: a job selector, category filter chips, score pill + filter_reason
  * per post, and a collapsed audit log of dropped posts.
  *
  * Helpers (formatText, timeAgo, fmtNum, renderPostBody, toggleReadMore,
@@ -12,9 +12,9 @@
 'use strict';
 
 window.CuratedPage = {
-    packs: [],                  // {name, kept, dropped_count, ...}
-    selectedPack: null,         // pack metadata currently being shown
-    filterData: null,           // { filter_metadata, posts } for selected pack
+    jobs: [],                   // [{id, date, job_id, kept, ...}]
+    selectedJob: null,          // currently shown job metadata
+    filterData: null,           // {filter_metadata, posts} for selected job
     activeCategory: 'all',
 
     render() {
@@ -22,7 +22,7 @@ window.CuratedPage = {
             <div class="fade-in">
                 <div class="page-header">
                     <h1 class="page-title">Curated Feed</h1>
-                    <select id="curated-pack-selector" onchange="CuratedPage.onPackSelect(this.value)">
+                    <select id="curated-job-selector" onchange="CuratedPage.onJobSelect(this.value)">
                         <option value="">Loading…</option>
                     </select>
                 </div>
@@ -33,31 +33,33 @@ window.CuratedPage = {
 
     async init() {
         try {
-            const data = await api('/curated/packs');
-            this.packs = data.packs || [];
-            this.renderPackSelector();
-            if (this.packs.length > 0) {
-                await this.loadPack(this.packs[0].name);
+            const data = await api('/curated/jobs');
+            this.jobs = data.jobs || [];
+            this.renderJobSelector();
+            if (this.jobs.length > 0) {
+                await this.loadJob(this.jobs[0].id);
             } else {
                 this.renderEmpty(data.is_setup);
             }
         } catch (e) {
             document.getElementById('curated-body').innerHTML =
-                `<div class="card text-danger">Failed to load curated packs: ${esc(e.message)}</div>`;
+                `<div class="card text-danger">Failed to load curated jobs: ${esc(e.message)}</div>`;
         }
     },
 
-    renderPackSelector() {
-        const sel = document.getElementById('curated-pack-selector');
+    renderJobSelector() {
+        const sel = document.getElementById('curated-job-selector');
         if (!sel) return;
-        if (this.packs.length === 0) {
-            sel.innerHTML = '<option value="">No curated packs</option>';
+        if (this.jobs.length === 0) {
+            sel.innerHTML = '<option value="">No curated jobs</option>';
             sel.disabled = true;
             return;
         }
-        sel.innerHTML = this.packs.map(p => {
-            const when = p.filtered_at ? new Date(p.filtered_at).toLocaleString() : '';
-            return `<option value="${escAttr(p.name)}">${esc(p.name)} — ${p.kept} kept${when ? ' · ' + when : ''}</option>`;
+        sel.innerHTML = this.jobs.map(j => {
+            const when = j.filtered_at ? new Date(j.filtered_at).toLocaleString() : '';
+            const platforms = (j.platforms || []).join(' · ');
+            const label = `${j.date} · ${j.job_id}${platforms ? ' (' + platforms + ')' : ''} — ${j.kept} kept${when ? ' · ' + when : ''}`;
+            return `<option value="${escAttr(j.id)}">${esc(label)}</option>`;
         }).join('');
         sel.disabled = false;
     },
@@ -70,8 +72,8 @@ window.CuratedPage = {
                 <div class="card">
                     <h3 class="font-semibold text-subtitle mb-2">Workspace not set up</h3>
                     <p class="text-secondary text-sm mb-3">
-                        Pick an export folder in <strong>Settings</strong> first, then come back after you've
-                        exported and curated a pack.
+                        Pick a workspace folder in <strong>Settings</strong> first. Once a collection runs,
+                        an agent can curate it in place and the results appear here.
                     </p>
                     <a href="#settings" class="btn btn-primary">Go to Settings</a>
                 </div>
@@ -80,34 +82,37 @@ window.CuratedPage = {
         }
         body.innerHTML = `
             <div class="card">
-                <h3 class="font-semibold text-subtitle mb-2">No curated packs yet</h3>
+                <h3 class="font-semibold text-subtitle mb-2">No curated jobs yet</h3>
                 <p class="text-secondary text-sm mb-3">
-                    Export a pack, then run your agent against it — when it writes
-                    <code>posts.filtered.json</code> in the pack folder, it'll show up here.
+                    Run a collection in the <a href="#collect">Collect</a> tab, then run an agent against
+                    your workspace — when it writes <code>posts.filtered.json</code> at
+                    <code>data/&lt;date&gt;/&lt;job_id&gt;/</code>, the curated job will show up here.
                 </p>
                 <div class="flex gap-2">
-                    <a href="#export" class="btn btn-secondary">Export</a>
-                    <a href="#curate" class="btn btn-primary">AI Curation</a>
+                    <a href="#data" class="btn btn-secondary">Manage data</a>
+                    <a href="#curate" class="btn btn-primary">Curate with AI</a>
                 </div>
             </div>
         `;
     },
 
-    async onPackSelect(name) {
-        if (!name) return;
-        await this.loadPack(name);
+    async onJobSelect(id) {
+        if (!id) return;
+        await this.loadJob(id);
     },
 
-    async loadPack(name) {
+    async loadJob(id) {
         const body = document.getElementById('curated-body');
-        body.innerHTML = '<div class="empty-state"><p class="text-secondary">Loading pack…</p></div>';
+        body.innerHTML = '<div class="empty-state"><p class="text-secondary">Loading curated job…</p></div>';
         try {
-            this.filterData = await api(`/curated/packs/${encodeURIComponent(name)}`);
-            this.selectedPack = this.packs.find(p => p.name === name) || { name };
+            // id is "YYYY-MM-DD/job_HHMMSS" — split for the URL
+            const [date, jobDir] = id.split('/');
+            this.filterData = await api(`/curated/jobs/${encodeURIComponent(date)}/${encodeURIComponent(jobDir)}`);
+            this.selectedJob = this.jobs.find(j => j.id === id) || { id };
             this.activeCategory = 'all';
             this.renderFeed();
         } catch (e) {
-            body.innerHTML = `<div class="card text-danger">Failed to load pack: ${esc(e.message)}</div>`;
+            body.innerHTML = `<div class="card text-danger">Failed to load curated job: ${esc(e.message)}</div>`;
         }
     },
 
@@ -131,6 +136,15 @@ window.CuratedPage = {
             ? '<div class="empty-state"><p class="text-secondary">No kept posts.</p></div>'
             : posts.slice(0, FIRST_CHUNK).map(p => this.renderPost(p)).join('');
 
+        // Per-platform kept counts as a small ribbon under the header.
+        const pc = meta.platform_counts || {};
+        const platformRibbon = Object.keys(pc).length === 0 ? '' : `
+            <div class="curated-meta-item text-secondary">
+                ${Object.entries(pc).map(([p, n]) =>
+                    `<span class="badge badge-${esc(p)}">${esc(p)}</span> ${n}`
+                ).join(' &nbsp; ')}
+            </div>`;
+
         body.innerHTML = `
             <div class="curated-meta">
                 <div class="curated-meta-item"><strong>${posts.length}</strong> kept</div>
@@ -138,6 +152,7 @@ window.CuratedPage = {
                 ${meta.median_score != null ? `<div class="curated-meta-item text-secondary">median score ${meta.median_score}</div>` : ''}
                 ${meta.drop_rule ? `<div class="curated-meta-item text-secondary"><code>${esc(meta.drop_rule)}</code></div>` : ''}
                 ${meta.filtered_at ? `<div class="curated-meta-item text-secondary">${new Date(meta.filtered_at).toLocaleString()}</div>` : ''}
+                ${platformRibbon}
             </div>
 
             <div class="sort-bar" id="curated-chips">
@@ -154,12 +169,13 @@ window.CuratedPage = {
                 <details class="dropped-log">
                     <summary>${dropped.length} dropped posts (audit log)</summary>
                     <table class="dropped-table">
-                        <thead><tr><th>Score</th><th>Category</th><th>ID</th><th>Reason</th></tr></thead>
+                        <thead><tr><th>Score</th><th>Category</th><th>Platform</th><th>ID</th><th>Reason</th></tr></thead>
                         <tbody>
                             ${dropped.map(d => `
                                 <tr>
                                     <td>${d.score ?? '—'}</td>
                                     <td><span class="badge badge-${escAttr(d.category || 'neutral')}">${esc(d.category || '')}</span></td>
+                                    <td>${d.platform ? `<span class="badge badge-${escAttr(d.platform)}">${esc(d.platform)}</span>` : ''}</td>
                                     <td><code>${esc(d.id || '')}</code></td>
                                     <td>${esc(d.filter_reason || '')}</td>
                                 </tr>
@@ -236,10 +252,11 @@ window.CuratedPage = {
         const reasonBody = post.filter_reason
             ? `<div class="filter-reason hidden" id="reason-${postId}">${esc(post.filter_reason)}</div>` : '';
 
-        const packName = this.selectedPack ? this.selectedPack.name : '';
-        const mediaResolver = (path) => packName
-            ? `/api/curated/packs/${encodeURIComponent(packName)}/${path}`
-            : path;
+        // local_media_paths in posts.filtered.json are already relative to the
+        // active data dir (e.g. "2026-05-02/job_020746/linkedin/media/foo.jpg"),
+        // so we serve them via the same /feed_data/ route the Raw Feed viewer uses.
+        const mediaResolver = (path) =>
+            path.startsWith('feed_data/') ? '/' + path : '/feed_data/' + path;
 
         return PostRenderer.renderPost(post, {
             postId,

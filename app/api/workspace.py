@@ -27,31 +27,10 @@ async def get_workspace():
             "suggested_path": str(suggested_workspace_dir()),
         }
 
-    exports = ws / "exports"
-    pack_count = 0
-    recent = []
-    if exports.exists():
-        items = sorted(
-            [p for p in exports.iterdir() if p.is_dir() or p.suffix == ".zip"],
-            key=lambda p: p.stat().st_mtime, reverse=True,
-        )
-        pack_count = len(items)
-        for item in items[:5]:
-            size_b = sum(f.stat().st_size for f in item.rglob("*") if f.is_file()) if item.is_dir() else item.stat().st_size
-            recent.append({
-                "name": item.name,
-                "is_dir": item.is_dir(),
-                "size_mb": round(size_b / 1024 / 1024, 1),
-                "modified": item.stat().st_mtime,
-            })
-
     return {
         "is_setup": True,
         "path": str(ws),
         "data_dir": str(ws / "data"),
-        "exports_dir": str(exports),
-        "pack_count": pack_count,
-        "recent_packs": recent,
         "goals_exists": (ws / "goals.md").exists(),
         "skill_exists": (ws / "skills" / "focus-lab-curator" / "SKILL.md").exists(),
     }
@@ -113,43 +92,6 @@ async def update_skill():
     # Return both the bootstrap result and the new status so the UI can
     # hide the banner in the same round-trip.
     return {"success": True, **result, "status": skill_status()}
-
-
-@router.get("/auto-export")
-async def get_auto_export():
-    """Return whether auto-export after collection is enabled."""
-    import json
-    from app.paths import CONFIG_PATH
-    enabled = False
-    if CONFIG_PATH.exists():
-        try:
-            enabled = bool(json.loads(CONFIG_PATH.read_text()).get("auto_export"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"enabled": enabled}
-
-
-class AutoExportRequest(BaseModel):
-    enabled: bool
-
-
-@router.post("/auto-export")
-async def set_auto_export(request: AutoExportRequest):
-    """Toggle auto-export. When true, every completed collection triggers a
-    curation export into `<workspace>/exports/`."""
-    import json
-    from app.paths import CONFIG_PATH
-
-    cfg: dict = {}
-    if CONFIG_PATH.exists():
-        try:
-            cfg = json.loads(CONFIG_PATH.read_text())
-        except (json.JSONDecodeError, OSError):
-            cfg = {}
-    cfg["auto_export"] = bool(request.enabled)
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
-    return {"success": True, "enabled": cfg["auto_export"]}
 
 
 @router.get("/goals")

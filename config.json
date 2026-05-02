@@ -46,6 +46,5 @@
       "session_file": "session/linkedin_state.json"
     }
   },
-  "auto_export": true,
-  "workspace_dir": "/Users/joeywang/Documents/social-feed"
+  "workspace_dir": "/Users/joeywang/Documents/vibe-scrolling-data"
 }

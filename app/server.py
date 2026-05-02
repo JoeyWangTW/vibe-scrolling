@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api import auth, collection, config, curated, data, export, setup, workspace
+from app.api import auth, collection, config, curated, data, setup, workspace
 from app.paths import FEED_DATA_DIR, IS_BUNDLED, STATIC_DIR, get_collected_data_dir
 from src.storage import migrate_legacy_runs
 
@@ -46,7 +46,6 @@ def create_app() -> FastAPI:
     app.include_router(collection.router, prefix="/api/collection", tags=["collection"])
     app.include_router(config.router, prefix="/api/config", tags=["config"])
     app.include_router(data.router, prefix="/api/data", tags=["data"])
-    app.include_router(export.router, prefix="/api/export", tags=["export"])
     app.include_router(setup.router, prefix="/api/setup", tags=["setup"])
     app.include_router(workspace.router, prefix="/api/workspace", tags=["workspace"])
     app.include_router(curated.router, prefix="/api/curated", tags=["curated"])

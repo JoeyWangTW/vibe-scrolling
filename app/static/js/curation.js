@@ -3,12 +3,12 @@
  *
  * Flow:
  *   1. Set expectations: the agent runs a short Q&A to learn your goals on first run.
- *   2. Confirm you have a pack exported (gates the flow — otherwise nudge to Export).
- *   3. Pick your AI agent (Claude Code, Cursor, Codex, other) and copy-paste the
+ *   2. Pick your AI agent (Claude Code, Cursor, Codex, other) and copy-paste the
  *      launch command + prompt.
- *   4. Review/edit goals — once the agent has interviewed you, your `goals.md`
+ *   3. Review/edit goals — once the agent has interviewed you, your `goals.md`
  *      lives in the workspace and is editable here.
- *   5. When the agent writes posts.filtered.json, it shows up under AI Curation.
+ *   4. When the agent writes posts.filtered.json under data/<date>/<job_id>/,
+ *      it shows up under AI Curation.
  *
  * Deliberately separate from the raw Feed (#viewer) and curated Feed
  * (#curated) pages — this is the "how do I actually run curation" surface.
@@ -16,9 +16,7 @@
 window.CuratePage = {
     workspace: null,
     goals: null,
-    packs: [],
     selectedAgent: 'claude-code',
-    selectedPack: '',
 
     agents: [
         {
@@ -26,7 +24,7 @@ window.CuratePage = {
             name: 'Claude Code',
             tagline: "Anthropic's terminal agent",
             launchCmd: (path) => `cd ${quote(path)}\nclaude`,
-            prompt: () => `curate this feed`,
+            prompt: () => `curate the latest feed`,
             setup: 'Your workspace has the skill installed at <code>.claude/skills/focus-lab-curator/</code> — Claude Code auto-discovers it.',
         },
         {
@@ -34,15 +32,15 @@ window.CuratePage = {
             name: 'Cursor',
             tagline: 'AI-first IDE',
             launchCmd: (path) => `cursor ${quote(path)}`,
-            prompt: () => `Read \`skills/focus-lab-curator/SKILL.md\` and follow it to curate this feed — use my goals in \`goals.md\`, score posts from \`posts.json\`, and write \`posts.filtered.json\` in this folder.`,
-            setup: 'Open the folder in Cursor; the skill is at <code>skills/focus-lab-curator/SKILL.md</code>. Copy into <code>.cursor/rules/</code> for auto-invocation.',
+            prompt: () => `Read \`skills/focus-lab-curator/SKILL.md\` and follow it. Curate the latest collection job — use my preferences in \`goals.md\`, score every post in \`data/<latest date>/<latest job>/<each platform>/posts.json\` together, and write \`posts.filtered.json\` at the job root.`,
+            setup: 'Open this folder in Cursor; the skill is at <code>skills/focus-lab-curator/SKILL.md</code>. Copy into <code>.cursor/rules/</code> for auto-invocation.',
         },
         {
             id: 'codex',
             name: 'Codex CLI',
             tagline: "OpenAI's terminal agent",
             launchCmd: (path) => `cd ${quote(path)}\ncodex --instructions skills/focus-lab-curator/SKILL.md`,
-            prompt: () => `curate this feed`,
+            prompt: () => `curate the latest feed`,
             setup: 'Point <code>--instructions</code> at the workspace skill file.',
         },
         {
@@ -54,9 +52,10 @@ window.CuratePage = {
                 `You are in a Focus Lab Feed workspace: ${path}`,
                 ``,
                 `Read \`skills/focus-lab-curator/SKILL.md\` in full and follow it exactly.`,
-                `Use my preferences in \`goals.md\`, score posts from \`posts.json\`,`,
-                `and write \`posts.filtered.json\` in this folder. Preserve every`,
-                `original field. Sort by score desc.`,
+                `Curate the latest collection job under \`data/\` — use my preferences`,
+                `in \`goals.md\`, score every platform's posts together, and write`,
+                `\`posts.filtered.json\` at the job root. Preserve every original`,
+                `field. Sort by score desc.`,
             ].join('\n'),
             setup: "Paste <code>skills/focus-lab-curator/SKILL.md</code> into your agent's system prompt.",
         },
@@ -67,8 +66,9 @@ window.CuratePage = {
             <div class="fade-in">
                 <h1 class="page-title">Curate with AI</h1>
                 <p class="page-subtitle">
-                    Teach your agent what you actually want, point it at a pack, and let it score
-                    every post for you. The curated feed shows up under <a href="#curated">AI Curation</a>.
+                    Teach your agent what you actually want, point it at your workspace, and let it
+                    score every post in the latest collection job for you. The curated feed shows up
+                    under <a href="#curated">AI Curation</a>.
                 </p>
                 <div id="curate-body">
                     <div class="empty-state"><p class="text-secondary">Loading…</p></div>
@@ -78,31 +78,13 @@ window.CuratePage = {
     },
 
     async init() {
-        const [ws, goals, packs] = await Promise.all([
+        const [ws, goals] = await Promise.all([
             api('/workspace').catch(() => ({ is_setup: false })),
             api('/workspace/goals').catch(() => null),
-            api('/curated/packs').catch(() => ({ packs: [] })),
         ]);
         this.workspace = ws;
         this.goals = goals;
-        // /api/curated/packs returns curated (filtered) packs. For the agent-launch
-        // step, we also want raw exported packs — list exports directly from workspace.
-        this.packs = await this._loadExportedPacks();
-        this.selectedPack = this.packs[0] ? this.packs[0].name : '';
         this.renderBody();
-    },
-
-    async _loadExportedPacks() {
-        // Pull from /api/workspace → recent_packs; these are *all* pack folders
-        // (both raw and already-curated). Good enough to drive the agent-launch
-        // command — the agent handles either case.
-        try {
-            const ws = await api('/workspace');
-            if (!ws || !ws.is_setup) return [];
-            return (ws.recent_packs || []).filter(p => p.is_dir);
-        } catch (e) {
-            return [];
-        }
     },
 
     renderBody() {
@@ -125,7 +107,6 @@ window.CuratePage = {
 
         body.innerHTML = [
             this._sectionIntro(),
-            this._sectionPackCheck(),
             this._sectionAgent(),
             this._sectionGoals(),
             this._sectionViewResult(),
@@ -143,14 +124,6 @@ window.CuratePage = {
                 this.renderBody();
             });
         });
-
-        const packSel = document.getElementById('curate-pack-select');
-        if (packSel) {
-            packSel.addEventListener('change', (e) => {
-                this.selectedPack = e.target.value;
-                this._refreshCommands();
-            });
-        }
 
         document.querySelectorAll('.copy-btn').forEach(btn => {
             btn.addEventListener('click', () => this._copyToClipboard(btn));
@@ -213,68 +186,23 @@ window.CuratePage = {
         `;
     },
 
-    _sectionPackCheck() {
-        const hasPack = this.packs.length > 0;
-        return `
-            <div class="card curate-section">
-                <div class="curate-section-head">
-                    <div class="curate-section-num ${hasPack ? 'done' : ''}">2</div>
-                    <div style="flex:1">
-                        <h3 class="font-semibold text-subtitle">Export a pack to curate</h3>
-                        <p class="text-secondary text-sm mt-1">
-                            ${hasPack
-                                ? `<strong>${this.packs.length} pack${this.packs.length === 1 ? '' : 's'}</strong> ready in your workspace. Pick one below.`
-                                : `You don't have any packs yet. The new flow is in-place curation against your <a href="#data">Data</a> folder — packs are coming back as an opt-in "Output as pack" action.`}
-                        </p>
-                    </div>
-                    ${hasPack
-                        ? ''
-                        : `<a href="#data" class="btn btn-primary btn-sm">Go to Data</a>`}
-                </div>
-            </div>
-        `;
-    },
-
     _sectionAgent() {
-        const hasPack = this.packs.length > 0;
         const agent = this.agents.find(a => a.id === this.selectedAgent);
-        const path = this._packFullPath();
-
-        if (!hasPack) {
-            return `
-                <div class="card curate-section curate-section-disabled">
-                    <div class="curate-section-head">
-                        <div class="curate-section-num">3</div>
-                        <div>
-                            <h3 class="font-semibold text-subtitle">Run your AI agent</h3>
-                            <p class="text-secondary text-sm mt-1">
-                                Unlocks once you have a pack. Use any agent you already have set up —
-                                Claude Code, Cursor, Codex, or paste the skill into anything else.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+        const path = this._workspacePath();
 
         return `
             <div class="card curate-section">
                 <div class="curate-section-head">
-                    <div class="curate-section-num">3</div>
+                    <div class="curate-section-num">2</div>
                     <div>
                         <h3 class="font-semibold text-subtitle">Run your AI agent</h3>
                         <p class="text-secondary text-sm mt-1">
                             Pick the agent you already have. We'll generate a ready-to-paste
-                            launch command and the prompt to give it.
+                            launch command and the prompt to give it. The agent reads
+                            <code>goals.md</code>, scores the latest collection job, and writes
+                            <code>posts.filtered.json</code> next to the data.
                         </p>
                     </div>
-                </div>
-
-                <div class="howto-row">
-                    <label class="text-secondary text-xs">Pack</label>
-                    <select id="curate-pack-select" class="setup-input">
-                        ${this.packs.map(p => `<option value="${escAttr(p.name)}"${p.name === this.selectedPack ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
-                    </select>
                 </div>
 
                 <div class="agent-grid">
@@ -311,8 +239,9 @@ window.CuratePage = {
                     <div>
                         <h3 class="font-semibold text-subtitle">See the curated result</h3>
                         <p class="text-secondary text-sm mt-1">
-                            When your agent writes <code>posts.filtered.json</code> in the pack folder,
-                            it shows up on <a href="#curated">AI Curation</a> with per-post scores and reasons.
+                            When your agent writes <code>posts.filtered.json</code> at
+                            <code>data/&lt;date&gt;/&lt;job_id&gt;/</code>, it shows up on
+                            <a href="#curated">AI Curation</a> with per-post scores and reasons.
                         </p>
                     </div>
                 </div>
@@ -322,19 +251,8 @@ window.CuratePage = {
 
     // --------------------------------------------------------------- actions
 
-    _packFullPath() {
-        const ws = this.workspace && this.workspace.path || '';
-        if (!this.selectedPack) return ws;
-        return `${ws}/exports/${this.selectedPack}`;
-    },
-
-    _refreshCommands() {
-        const agent = this.agents.find(a => a.id === this.selectedAgent);
-        const path = this._packFullPath();
-        const l = document.getElementById('launch-code');
-        const p = document.getElementById('prompt-code');
-        if (l) l.textContent = agent.launchCmd(path);
-        if (p) p.textContent = agent.prompt(path);
+    _workspacePath() {
+        return (this.workspace && this.workspace.path) || '';
     },
 
     async refreshGoals() {

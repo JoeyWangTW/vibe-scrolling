@@ -1,5 +1,15 @@
 # Work Log
 
+## 2026-05-02 - Workspace IS the data dir + per-job curation, drop auto-export
+
+Followup to the workspace-as-data-dir refactor. Three things ship together:
+
+- **Curator skill rewritten for per-job, cross-platform curation** (`skills/focus-lab-curator/`, v1.0.0 → v2.0.0). `curate.py` now operates from the workspace root (auto-detects via walking up to find `data/` or `goals.md`), picks the latest job under `data/` (or `--job 2026-05-02/job_HHMMSS`), reads every platform's `posts.json` together, scores them all in one ranking against `goals.md`, and writes a single `posts.filtered.json` at `<workspace>/data/<date>/<job>/`. Drops the orphan-media trim and `--keep-media` / `--drop-videos` flags — data is in place, not packed. SKILL.md rewritten end-to-end (no more "pack" vocabulary, goals are workspace-level only, output contract documents the new shape with `platforms` + `platform_counts` + per-dropped `platform`).
+- **Curated API + UI flipped from packs to jobs.** `/api/curated/packs` → `/api/curated/jobs`; lists every job under `data/` that has `posts.filtered.json`, returns full filter_metadata. `app/static/js/curated.js` now selects by job (date · job_id · platforms label), shows per-platform kept counts in the header ribbon, and serves media via the existing `/feed_data/` route since `local_media_paths` are already relative to the data root. `curation.js` (Curate-with-AI tab) lost its pack picker — agent-launch step now always points at the workspace root and the prompt says "curate the latest feed".
+- **Auto-export ripped out entirely.** `app/api/export.py` deleted; `_maybe_auto_export()` and the `export_curation` plumbing in `collection.py` deleted; `/api/workspace/auto-export` GET/POST deleted; `auto_export` config key dropped; auto-export toggle removed from Settings + Onboarding; `pack_count` / `recent_packs` / `exports_dir` dropped from `/api/workspace` response. Curation reads directly from `data/`, so the duplicate-then-curate dance was buying nothing.
+
+Verified end-to-end on a real job: workspace at `~/Documents/vibe-scrolling-data`, 265 posts across twitter / threads / instagram / linkedin / youtube. `python3 skills/focus-lab-curator/curate.py` ran 14 batches of 20 in 4-way parallel against `claude --print` with Sonnet 4.6, took ~2 min, produced 245 kept / 20 dropped, top 8 results mix all 5 platforms (NASA tweet 73, instagram cinnamoroll 65, threads + linkedin all interleaved). `/api/curated/jobs` lists the job; `/api/curated/jobs/2026-05-02/job_021736` returns 245 posts; `/feed_data/<path>` serves a 12 MB linkedin video correctly.
+
 ## 2026-05-02 - LinkedIn collector
 
 - Added `src/platforms/linkedin/` (auth, interceptor, collector) following the same shape as threads/youtube.

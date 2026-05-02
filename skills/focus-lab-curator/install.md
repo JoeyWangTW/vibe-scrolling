@@ -2,19 +2,21 @@
 
 The curator is a plain-markdown skill. It runs in any capable coding agent.
 
+The desktop app sets this up for you automatically when you bootstrap a workspace — `<workspace>/skills/focus-lab-curator/` and a `.claude/skills/focus-lab-curator` symlink are both created. The notes below cover manual setups (other agents, hand-rolled workspaces).
+
 ## Claude Code
 
-Symlink the skill into your Claude Code skills folder:
+If your workspace was bootstrapped by the app, you're done. Otherwise:
 
 ```bash
 mkdir -p ~/.claude/skills
 ln -sfn "$(pwd)/skills/focus-lab-curator" ~/.claude/skills/focus-lab-curator
 ```
 
-Then, from inside a pack folder (one that contains `posts.json`):
+From the workspace root:
 
 ```bash
-cd ~/Downloads/focus-lab-pack-2026-04-16
+cd ~/Focus\ Lab\ Feed     # or wherever your workspace lives
 claude
 ```
 
@@ -24,7 +26,7 @@ In the Claude prompt, invoke the skill:
 /focus-lab-curator
 ```
 
-or just say *"curate this feed"* — the skill's description will match.
+or just say *"curate the latest feed"* — the skill's description will match.
 
 ## Cursor
 
@@ -35,7 +37,7 @@ mkdir -p .cursor/rules
 cp skills/focus-lab-curator/SKILL.md .cursor/rules/focus-lab-curator.md
 ```
 
-Then open the pack folder in Cursor and ask the agent to *"curate this feed using the Focus Lab Curator skill"*.
+Then open the workspace folder in Cursor and ask the agent to *"curate the latest collection job using the Focus Lab Curator skill"*.
 
 ## Codex / OpenAI Agents
 
@@ -53,13 +55,18 @@ Paste the contents of `SKILL.md` into your agent's system prompt. The skill is p
 
 ## Where `goals.md` lives
 
-- **Pack-local (preferred):** the curator writes `./goals.md` in the pack folder when you first run it.
-- **User-global (fallback):** if you accept when prompted, a copy is also saved to `~/.focuslab/goals.md`. Future packs pick this up automatically when a pack-local `goals.md` is absent.
+`<workspace>/goals.md` — one file at the workspace root, shared by every job. The curator reads it on every run, so edits take effect on the next curation.
 
-You can edit `goals.md` by hand at any time. Re-running the skill will pick up your edits.
+If `goals.md` is missing or essentially empty, the skill runs a short interview (5 questions) and writes one for you. You can edit by hand at any time.
 
 ---
 
 ## Output
 
-The skill always writes **one file**: `posts.filtered.json`, next to `posts.json` in the pack folder. The Focus Lab Feed app's **AI Curation** tab picks it up automatically.
+The skill always writes **one file** per job:
+
+```
+<workspace>/data/<date>/<job_id>/posts.filtered.json
+```
+
+It contains every kept post (across all platforms in that job, ranked by score) plus a compact audit log of what was dropped and why. The Focus Lab Feed app's **AI Curation** tab picks it up automatically.
