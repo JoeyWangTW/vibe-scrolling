@@ -65,21 +65,16 @@ window.SettingsPage = {
     },
 
     _renderPlatforms(status) {
-        const meta = {
-            twitter:   { name: 'Twitter / X', icon: '𝕏' },
-            threads:   { name: 'Threads',     icon: '@' },
-            instagram: { name: 'Instagram',   icon: '📷' },
-            youtube:   { name: 'YouTube',     icon: '▶' },
-        };
         const cards = Object.entries(status).map(([platform, info]) => {
-            const m = meta[platform] || { name: platform, icon: '?' };
+            const name = PlatformIcons.name(platform);
+            const icon = PlatformIcons.svg(platform, { size: 28 }) || '?';
             const connected = !!(info && info.connected);
             return `
                 <div class="card platform-${platform}" id="settings-card-${platform}">
                     <div class="card-header">
-                        <div class="platform-icon">${m.icon}</div>
+                        <div class="platform-icon platform-icon-${platform}">${icon}</div>
                         <div>
-                            <div class="font-semibold text-subtitle">${m.name}</div>
+                            <div class="font-semibold text-subtitle">${name}</div>
                             <div class="text-sm text-secondary">
                                 <span class="dot ${connected ? 'dot-success' : 'dot-muted'}"></span>
                                 ${connected ? 'Connected' : 'Not connected'}

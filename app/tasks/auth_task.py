@@ -14,6 +14,7 @@ PLATFORM_LOGIN_URLS = {
     "threads": "https://www.threads.net/login",
     "instagram": "https://www.instagram.com/accounts/login/",
     "youtube": "https://accounts.google.com/signin",
+    "linkedin": "https://www.linkedin.com/login",
 }
 
 # Navigate to login page — if logged in, the platform redirects you away.
@@ -23,6 +24,7 @@ PLATFORM_VERIFY = {
     "threads": {"login_url": "https://www.threads.net/login", "still_on_login": ["/login"]},
     "instagram": {"login_url": "https://www.instagram.com/accounts/login/", "still_on_login": ["/accounts/login"]},
     "youtube": {"login_url": "https://accounts.google.com/signin", "still_on_login": ["accounts.google.com/"]},
+    "linkedin": {"login_url": "https://www.linkedin.com/login", "still_on_login": ["/login", "/uas/login", "/checkpoint"]},
 }
 
 

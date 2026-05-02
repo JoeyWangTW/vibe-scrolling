@@ -1,5 +1,14 @@
 # Work Log
 
+## 2026-05-02 - LinkedIn collector
+
+- Added `src/platforms/linkedin/` (auth, interceptor, collector) following the same shape as threads/youtube.
+- **Switched from DOM scraping to Voyager API parsing.** Initial DOM approach captured 59 posts but with empty author names and broken counts. The Voyager response shape is actually easy to parse: each response has a flat `included` array of typed entities (`Update`, `Profile`, `SocialActivityCounts`, `VideoPlayMetadata`, ...) keyed by `entityUrn`. Build an in-memory store from `included`, walk every `Update`, and resolve `*foo` URN references (e.g. `*socialDetail` → `SocialDetail` → `*totalSocialActivityCounts` → `SocialActivityCounts`) to get author, text, counts, and media. DOM extraction stays as a fallback if the API ever yields nothing.
+- Author handle extracted from `actor.navigationContext.actionTarget` (handles `/in/`, `/company/`, `/school/` URL forms). Time text from `actor.subDescription.text`. Media URLs built by concatenating `vectorImage.rootUrl` + the largest artifact's `fileIdentifyingUrlPathSegment`. Native videos resolved via `*videoPlayMetadata` → `VideoPlayMetadata.progressiveStreams` (highest-quality progressive stream). Document slides pull the first cover page; article previews pull the headline image. Voyager responses are archived to `raw/voyager_*.json`.
+- Verified end-to-end: 55 posts captured in ~55s with 0 empty authors / 0 empty text / 100% time text / 54/55 with engagement counts / 49/55 with remote media URLs / 72 local media files downloaded.
+- Wired LinkedIn through the rest of the system: `src/platforms/__init__.py` registry, `src/collect.py` CLI choices, `app/api/collection.py` PLATFORMS, `app/tasks/auth_task.py` PLATFORM_LOGIN_URLS + PLATFORM_VERIFY (login URL + still-on-login patterns including `/uas/login` and `/checkpoint`), `app/static/js/{platforms,settings,onboarding,collection}.js`, `post-renderer.js` mention/hashtag links, `app.css` (`--color-linkedin: #0a66c2` + `.badge-linkedin`), and `config.json` defaults.
+- Captured fields: id (`urn:li:activity:*`), text, author name + headline + url, time-ago text (LinkedIn doesn't expose absolute dates in the DOM), likes, comments (mapped to `Post.replies`), reposts, image URLs, video URLs, repost detection with quoted_post, sponsored/promoted flag mapped to `is_ad`.
+
 ## 2026-04-22 - Vibe Scrolling rebrand + gated onboarding
 
 - Renamed app to **Focus Lab — Vibe Scrolling** (browser title, Dock/bundle name, macOS window title, FastAPI title, sidebar logo)

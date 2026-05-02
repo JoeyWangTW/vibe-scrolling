@@ -36,6 +36,14 @@
       "max_posts": 50,
       "max_minutes": 5,
       "session_file": "session/youtube_state.json"
+    },
+    "linkedin": {
+      "enabled": true,
+      "scroll_delay_min": 3,
+      "scroll_delay_max": 6,
+      "max_posts": 50,
+      "max_minutes": 5,
+      "session_file": "session/linkedin_state.json"
     }
   },
   "auto_export": true,

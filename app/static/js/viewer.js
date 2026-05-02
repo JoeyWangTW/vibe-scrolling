@@ -40,7 +40,12 @@ window.ViewerPage = {
 
     async loadLatest() {
         try {
-            const data = await api('/data/runs/latest');
+            // Fetch latest posts AND the run-list in parallel — they're served
+            // by independent endpoints, no reason to await sequentially.
+            const [data, runsData] = await Promise.all([
+                api('/data/runs/latest'),
+                api('/data/runs'),
+            ]);
             this.allPosts = [];
 
             for (const [platform, runData] of Object.entries(data.runs || {})) {
@@ -53,8 +58,6 @@ window.ViewerPage = {
                 this.allPosts.push(...posts);
             }
 
-            // Load available runs for dropdown (grouped by date)
-            const runsData = await api('/data/runs');
             this.availableDates = runsData.dates || [];
             this.availableRuns = (runsData.runs || []).filter(r => r.has_posts);
             this.renderRunSelector();
@@ -200,7 +203,7 @@ window.ViewerPage = {
         const multiPlatform = this.currentPlatform === 'all'
             && new Set(this.allPosts.map(p => p.platform)).size > 1;
 
-        feed.innerHTML = sorted.map(t => {
+        const html = (t) => {
             const postId = (t.id || Math.random().toString(36).slice(2)).toString();
             const platform = t.platform || 'twitter';
             const hasReplies = t.top_replies && t.top_replies.length > 0;
@@ -223,15 +226,35 @@ window.ViewerPage = {
             return PostRenderer.renderPost(t, {
                 postId,
                 showPlatformBadge: multiPlatform,
-                // feed_data paths: prepend `/feed_data/` (or `/` if already prefixed)
                 mediaResolver: p => p.startsWith('feed_data/') ? '/' + p : '/feed_data/' + p,
                 afterStats: repliesSection,
             });
-        }).join('');
+        };
 
-        PostRenderer.setupCarouselDrag();
-        PostRenderer.setupVideoAutoplay('viewer-feed');
-        PostRenderer.setupYoutubeHover('viewer-feed');
+        // Progressive render — paint the first chunk immediately so the page
+        // feels instant, then stream the rest in on the next frame. Building
+        // a single huge innerHTML for hundreds of posts blocked first paint
+        // for ~1–2 s. Observers are attached after the full feed lands so
+        // every video/iframe gets bound exactly once.
+        const FIRST_CHUNK = 30;
+        feed.innerHTML = sorted.slice(0, FIRST_CHUNK).map(html).join('');
+
+        if (sorted.length <= FIRST_CHUNK) {
+            PostRenderer.setupCarouselDrag();
+            PostRenderer.setupVideoAutoplay('viewer-feed');
+            PostRenderer.setupYoutubeHover('viewer-feed');
+            return;
+        }
+
+        const renderToken = (this._renderToken = (this._renderToken || 0) + 1);
+        requestAnimationFrame(() => {
+            if (renderToken !== this._renderToken) return;  // superseded by a newer render
+            const rest = sorted.slice(FIRST_CHUNK).map(html).join('');
+            feed.insertAdjacentHTML('beforeend', rest);
+            PostRenderer.setupCarouselDrag();
+            PostRenderer.setupVideoAutoplay('viewer-feed');
+            PostRenderer.setupYoutubeHover('viewer-feed');
+        });
     },
 
     toggleReplies(postId, btn) {

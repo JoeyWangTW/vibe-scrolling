@@ -15,12 +15,11 @@
 (function () {
 'use strict';
 
-const PLATFORMS = [
-    { id: 'twitter',   name: 'Twitter / X', icon: '𝕏' },
-    { id: 'threads',   name: 'Threads',     icon: '@' },
-    { id: 'instagram', name: 'Instagram',   icon: '📷' },
-    { id: 'youtube',   name: 'YouTube',     icon: '▶' },
-];
+const PLATFORMS = PlatformIcons.list().map(id => ({
+    id,
+    name: PlatformIcons.name(id),
+    iconHtml: PlatformIcons.svg(id, { size: 24 }),
+}));
 
 const STEPS = ['welcome', 'setup', 'connect', 'workspace', 'done'];
 
@@ -233,7 +232,7 @@ window.Onboarding = {
         return `
             <div class="ob-platform-card ${connected ? 'is-connected' : ''}">
                 <div class="ob-platform-head">
-                    <div class="platform-icon">${p.icon}</div>
+                    <div class="platform-icon platform-icon-${p.id}">${p.iconHtml}</div>
                     <div class="ob-platform-name">${p.name}</div>
                 </div>
                 <div class="ob-platform-action">${action}</div>

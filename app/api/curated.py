@@ -16,6 +16,40 @@ from app.paths import get_workspace_dir
 
 router = APIRouter()
 
+# Mtime-keyed cache of filter_metadata blobs. posts.filtered.json is rewritten
+# only when the curator runs; until then we shouldn't re-parse multi-MB JSON
+# every time the user clicks the AI Curation tab.
+_filter_meta_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _read_filter_metadata(filtered: Path) -> dict | None:
+    """Return the filter_metadata blob from posts.filtered.json (cached by
+    mtime). None if the file is missing or unparseable."""
+    try:
+        st = filtered.stat()
+    except OSError:
+        return None
+    key = str(filtered)
+    cached = _filter_meta_cache.get(key)
+    if cached and cached[0] == st.st_mtime:
+        return cached[1]
+    try:
+        data = json.loads(filtered.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    meta = data.get("filter_metadata", {}) or {}
+    out = {
+        "kept": meta.get("kept_posts", len(data.get("posts", []))),
+        "dropped_count": meta.get("dropped_count", 0),
+        "source_posts": meta.get("source_posts"),
+        "median_score": meta.get("median_score"),
+        "avg_score": meta.get("avg_score"),
+        "category_counts": meta.get("category_counts"),
+        "filtered_at": meta.get("filtered_at"),
+    }
+    _filter_meta_cache[key] = (st.st_mtime, out)
+    return out
+
 
 def _safe_pack_dir(pack_name: str) -> Path:
     """Resolve <workspace>/exports/<pack_name> and ensure it's inside exports/."""
@@ -49,20 +83,12 @@ async def list_curated_packs():
         filtered = pack_dir / "posts.filtered.json"
         if not filtered.exists():
             continue
-        try:
-            data = json.loads(filtered.read_text())
-        except (json.JSONDecodeError, OSError):
+        meta = _read_filter_metadata(filtered)
+        if meta is None:
             continue
-        meta = data.get("filter_metadata", {}) or {}
         packs.append({
             "name": pack_dir.name,
-            "kept": meta.get("kept_posts", len(data.get("posts", []))),
-            "dropped_count": meta.get("dropped_count", 0),
-            "source_posts": meta.get("source_posts"),
-            "median_score": meta.get("median_score"),
-            "avg_score": meta.get("avg_score"),
-            "category_counts": meta.get("category_counts"),
-            "filtered_at": meta.get("filtered_at"),
+            **meta,
             "modified": pack_dir.stat().st_mtime,
         })
 

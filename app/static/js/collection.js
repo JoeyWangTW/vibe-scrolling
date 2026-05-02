@@ -68,7 +68,7 @@ window.CollectPage = {
     },
 
     async startCollection() {
-        const platforms = ['twitter', 'threads', 'instagram', 'youtube'];
+        const platforms = ['twitter', 'threads', 'instagram', 'youtube', 'linkedin'];
         const selected = platforms.filter(p => {
             const chk = document.getElementById(`chk-${p}`);
             return chk && chk.checked && !chk.disabled;

@@ -8,11 +8,11 @@ Supported CLIs (auto-detected in this order):
 
 From inside a pack directory (one containing posts.json and goals.md):
 
-    python3 curate.py                       # auto-pick a CLI
-    python3 curate.py PACK_DIR              # score a specific pack
-    python3 curate.py --cli codex           # force a specific CLI
-    python3 curate.py --batch 10            # smaller batches (default 20)
-    python3 curate.py --model sonnet-4      # pass through to the CLI's --model
+    python3 curate.py                                # auto-pick a CLI; Claude Code defaults to Sonnet 4.6
+    python3 curate.py PACK_DIR                       # score a specific pack
+    python3 curate.py --cli codex                    # force a specific CLI
+    python3 curate.py --batch 10                     # smaller batches (default 20)
+    python3 curate.py --model claude-opus-4-7        # override the model the CLI uses
 
 Reads `posts.json` + `goals.md`, chunks posts, invokes the chosen CLI per
 batch with the scoring rubric inlined, and writes `posts.filtered.json`
@@ -31,10 +31,19 @@ import json
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
 BATCH_SIZE_DEFAULT = 20
+# Each batch is an independent CLI invocation, so we can fan out. 4 keeps
+# wall time down without poking the agent's rate limits too hard.
+CONCURRENCY_DEFAULT = 4
+
+# Default Claude Code model for batch scoring. Sonnet hits the right cost/
+# quality trade-off here — scoring is short-context per batch and doesn't
+# need Opus-level reasoning. Override per-run with `--model`.
+DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
 
 
 PROMPT = """You are scoring a batch of social-media posts against a user's content preferences.
@@ -105,9 +114,7 @@ def slim(post: dict) -> dict:
 # the agent's stdout text. Order in SUPPORTED_CLIS is the auto-detect priority.
 
 def _run_claude(prompt: str, model: str | None) -> str:
-    cmd = ["claude", "--print"]
-    if model:
-        cmd += ["--model", model]
+    cmd = ["claude", "--print", "--model", model or DEFAULT_CLAUDE_MODEL]
     r = subprocess.run(cmd, input=prompt, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"claude --print failed (exit {r.returncode}): {r.stderr.strip()}")
@@ -200,6 +207,8 @@ def main() -> int:
     p.add_argument("--cli", default=None, choices=list(SUPPORTED_CLIS),
                    help="force a specific CLI (default: auto — claude > codex > cursor-agent)")
     p.add_argument("--batch", type=int, default=BATCH_SIZE_DEFAULT, help=f"batch size (default {BATCH_SIZE_DEFAULT})")
+    p.add_argument("--concurrency", type=int, default=CONCURRENCY_DEFAULT,
+                   help=f"max batches running in parallel (default {CONCURRENCY_DEFAULT}; set 1 for sequential)")
     p.add_argument("--model", default=None, help="passed through to the CLI's --model flag")
     p.add_argument("--keep-media", action="store_true",
                    help="skip media cleanup (default: remove media for dropped posts to shrink the pack)")
@@ -224,22 +233,39 @@ def main() -> int:
         sys.exit("error: posts.json has no posts array")
 
     total_batches = (len(posts) + args.batch - 1) // args.batch
-    print(f"Curating {len(posts)} posts in {total_batches} batch(es) of {args.batch}...", file=sys.stderr)
+    concurrency = max(1, min(args.concurrency, total_batches))
+    print(f"Curating {len(posts)} posts in {total_batches} batch(es) of {args.batch} "
+          f"({concurrency} in parallel)...", file=sys.stderr)
+
+    # Build the batch list up front so we can fan out. Each CLI invocation
+    # blocks on subprocess.run, but it releases the GIL during I/O — threads
+    # get true wall-clock parallelism here.
+    batches: list[tuple[int, list[dict]]] = [
+        (i // args.batch + 1, posts[i:i + args.batch])
+        for i in range(0, len(posts), args.batch)
+    ]
 
     scored_map: dict[str, dict] = {}
-    for i in range(0, len(posts), args.batch):
-        n = i // args.batch + 1
-        batch = posts[i:i + args.batch]
-        print(f"  [{n}/{total_batches}] scoring {len(batch)} posts...", file=sys.stderr)
-        try:
-            scored = score_batch(batch, goals, runner=runner, model=args.model)
-        except Exception as e:
-            print(f"    !! batch {n} failed: {e}", file=sys.stderr)
-            continue
-        for s in scored:
-            sid = str(s.get("id", ""))
-            if sid:
-                scored_map[sid] = s
+    completed = 0
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        futures = {
+            pool.submit(score_batch, batch, goals, runner, args.model): n
+            for n, batch in batches
+        }
+        for fut in as_completed(futures):
+            n = futures[fut]
+            try:
+                scored = fut.result()
+            except Exception as e:
+                completed += 1
+                print(f"  [{completed}/{total_batches}] !! batch {n} failed: {e}", file=sys.stderr)
+                continue
+            for s in scored:
+                sid = str(s.get("id", ""))
+                if sid:
+                    scored_map[sid] = s
+            completed += 1
+            print(f"  [{completed}/{total_batches}] batch {n} ✓ ({len(scored)} posts)", file=sys.stderr)
 
     # Assemble output
     kept: list[dict] = []
