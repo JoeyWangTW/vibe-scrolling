@@ -48,6 +48,7 @@ async def get_workspace():
     return {
         "is_setup": True,
         "path": str(ws),
+        "data_dir": str(ws / "data"),
         "exports_dir": str(exports),
         "pack_count": pack_count,
         "recent_packs": recent,

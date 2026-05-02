@@ -20,7 +20,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.paths import FEED_DATA_DIR, PROJECT_ROOT, IS_BUNDLED, MEIPASS, get_workspace_dir
+from app.paths import FEED_DATA_DIR, PROJECT_ROOT, IS_BUNDLED, MEIPASS, get_collected_data_dir, get_workspace_dir
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ router = APIRouter()
 
 def _load_posts_from_run(run_id: str) -> list[dict]:
     # run_id can be path-like: 2026-03-22/job_002223/twitter
-    run_dir = FEED_DATA_DIR / run_id
+    run_dir = get_collected_data_dir() / run_id
     if not run_dir.is_dir():
         return []
 
@@ -53,7 +53,7 @@ def _collect_media_files(posts: list[dict]) -> list[tuple[Path, str]]:
             if rel_path in seen:
                 continue
             seen.add(rel_path)
-            abs_path = FEED_DATA_DIR / rel_path
+            abs_path = get_collected_data_dir() / rel_path
             if abs_path.exists():
                 archive_name = f"media/{abs_path.name}"
                 files.append((abs_path, archive_name))

@@ -126,6 +126,11 @@ window.CuratedPage = {
             </button>
         `;
 
+        const FIRST_CHUNK = 30;
+        const firstHtml = posts.length === 0
+            ? '<div class="empty-state"><p class="text-secondary">No kept posts.</p></div>'
+            : posts.slice(0, FIRST_CHUNK).map(p => this.renderPost(p)).join('');
+
         body.innerHTML = `
             <div class="curated-meta">
                 <div class="curated-meta-item"><strong>${posts.length}</strong> kept</div>
@@ -143,9 +148,7 @@ window.CuratedPage = {
                 ${chip('neutral', 'Neutral', cc.neutral)}
             </div>
 
-            <div id="curated-feed">
-                ${posts.map(p => this.renderPost(p)).join('') || '<div class="empty-state"><p class="text-secondary">No kept posts.</p></div>'}
-            </div>
+            <div id="curated-feed">${firstHtml}</div>
 
             ${dropped.length > 0 ? `
                 <details class="dropped-log">
@@ -167,13 +170,31 @@ window.CuratedPage = {
             ` : ''}
         `;
 
-        // Video autoplay + carousel drag + YT hover — same observers both pages use.
+        // Bind observers + filter for the first chunk so it's interactive
+        // immediately. If there are more posts, stream them in on the next
+        // frame and re-bind observers afterward (the bound-once guards inside
+        // PostRenderer.* keep us from double-attaching to the first chunk).
         if (this._videoObserver) this._videoObserver.disconnect();
         this._videoObserver = PostRenderer.setupVideoAutoplay('curated-feed');
         PostRenderer.setupCarouselDrag();
         PostRenderer.setupYoutubeHover('curated-feed');
-
         this.applyCategoryFilter();
+
+        if (posts.length > FIRST_CHUNK) {
+            const renderToken = (this._renderToken = (this._renderToken || 0) + 1);
+            requestAnimationFrame(() => {
+                if (renderToken !== this._renderToken) return;
+                const feed = document.getElementById('curated-feed');
+                if (!feed) return;
+                const restHtml = posts.slice(FIRST_CHUNK).map(p => this.renderPost(p)).join('');
+                feed.insertAdjacentHTML('beforeend', restHtml);
+                if (this._videoObserver) this._videoObserver.disconnect();
+                this._videoObserver = PostRenderer.setupVideoAutoplay('curated-feed');
+                PostRenderer.setupCarouselDrag();
+                PostRenderer.setupYoutubeHover('curated-feed');
+                this.applyCategoryFilter();
+            });
+        }
     },
 
     toggleReason(postId, btn) {

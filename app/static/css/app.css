@@ -97,6 +97,7 @@
     --color-threads: #71717a;
     --color-instagram: #e1306c;
     --color-youtube: #ff0033;
+    --color-linkedin: #0a66c2;
 }
 
 /* --- DARK --- */
@@ -1050,6 +1051,7 @@ a:hover { color: var(--accent); }
 .badge-threads { background: rgba(255, 255, 255, 0.08); color: var(--color-threads); }
 .badge-instagram { background: rgba(225, 48, 108, 0.12); color: var(--color-instagram); }
 .badge-youtube { background: rgba(255, 68, 68, 0.12); color: var(--color-youtube); }
+.badge-linkedin { background: rgba(10, 102, 194, 0.12); color: var(--color-linkedin); }
 
 /* --- Tabs --- */
 .tabs {
@@ -1120,8 +1122,28 @@ input[type="radio"] {
 .platform-icon {
     font-size: 28px;
     width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     flex-shrink: 0;
+    color: var(--foreground);
+}
+
+.platform-icon svg.platform-svg {
+    width: 28px;
+    height: 28px;
+    display: block;
+}
+
+/* All brand icons render monochrome (foreground color). */
+.platform-icon-twitter,
+.platform-icon-threads,
+.platform-icon-instagram,
+.platform-icon-youtube,
+.platform-icon-linkedin {
+    color: var(--foreground);
 }
 
 /* --- Progress Bar --- */
@@ -1864,6 +1886,27 @@ input[type="radio"] {
 }
 
 .tree-leaf:last-child { border-bottom: none; }
+
+/* Per-row action buttons in the Data tab tree (Open / Delete sit to the
+   right of every date / job / run row, hidden until hover for clarity). */
+.tree-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.tree-row .tree-toggle { flex: 1; }
+
+.tree-row-actions {
+    display: flex;
+    gap: var(--sp-1);
+    opacity: 0;
+    transition: opacity var(--transition);
+    flex-shrink: 0;
+}
+
+.tree-row:hover .tree-row-actions,
+.tree-leaf:hover .tree-row-actions { opacity: 1; }
 
 /* --- Export page --- */
 .export-run-row {

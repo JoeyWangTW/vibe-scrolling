@@ -224,12 +224,12 @@ window.CuratePage = {
                         <p class="text-secondary text-sm mt-1">
                             ${hasPack
                                 ? `<strong>${this.packs.length} pack${this.packs.length === 1 ? '' : 's'}</strong> ready in your workspace. Pick one below.`
-                                : `You don't have any packs yet. Head to <a href="#export">Export</a> and run an export — or flip on auto-export in <a href="#settings">Settings</a> so every collection packs itself.`}
+                                : `You don't have any packs yet. The new flow is in-place curation against your <a href="#data">Data</a> folder — packs are coming back as an opt-in "Output as pack" action.`}
                         </p>
                     </div>
                     ${hasPack
                         ? ''
-                        : `<a href="#export" class="btn btn-primary btn-sm">Go to Export</a>`}
+                        : `<a href="#data" class="btn btn-primary btn-sm">Go to Data</a>`}
                 </div>
             </div>
         `;

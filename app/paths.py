@@ -86,6 +86,25 @@ def get_workspace_dir() -> Path | None:
     return p if p.exists() else None
 
 
+def get_collected_data_dir() -> Path:
+    """Where collected feeds get written and read.
+
+    Once a workspace is set up, collections live alongside the user's other
+    Focus Lab content under `<workspace>/data/`. Until then, we fall back to
+    the legacy app-data location (`FEED_DATA_DIR`) so the dev environment and
+    pre-workspace first-launch state still work.
+
+    Resolved on every call — switching the workspace in Settings takes effect
+    on the next collection / data API call without an app restart.
+    """
+    ws = get_workspace_dir()
+    if ws is not None:
+        data = ws / "data"
+        data.mkdir(parents=True, exist_ok=True)
+        return data
+    return FEED_DATA_DIR
+
+
 def skill_source_dir() -> Path:
     """Where the canonical curator skill lives in the install.
 

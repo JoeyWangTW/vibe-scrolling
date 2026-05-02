@@ -8,19 +8,31 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.paths import CONFIG_PATH, FEED_DATA_DIR
+from app.paths import CONFIG_PATH, FEED_DATA_DIR, get_collected_data_dir
 from app.tasks.manager import task_manager
 from src.storage import create_job_id
 
 router = APIRouter()
 
-PLATFORMS = ["twitter", "threads", "instagram", "youtube"]
+PLATFORMS = ["twitter", "threads", "instagram", "youtube", "linkedin"]
 
 
 def _load_config() -> dict:
+    """Load config and force `output_dir` to the active data dir.
+
+    The on-disk config.json may carry a stale `output_dir` from before the
+    workspace existed. Always override so collections land where the rest of
+    the app reads them (workspace/data when set up, FEED_DATA_DIR otherwise).
+    """
+    cfg = {}
     if CONFIG_PATH.exists():
-        return json.loads(CONFIG_PATH.read_text())
-    return {"output_dir": str(FEED_DATA_DIR), "platforms": {}}
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            cfg = {}
+    cfg.setdefault("platforms", {})
+    cfg["output_dir"] = str(get_collected_data_dir())
+    return cfg
 
 
 class CollectionRequest(BaseModel):
@@ -46,6 +58,8 @@ async def _run_collection(task, platform: str, config: dict):
             from src.platforms.instagram.collector import run
         elif platform == "youtube":
             from src.platforms.youtube.collector import run
+        elif platform == "linkedin":
+            from src.platforms.linkedin.collector import run
         else:
             task.status = "failed"
             task.error = f"Unknown platform: {platform}"
@@ -104,7 +118,8 @@ async def _maybe_auto_export(job_id: str, tasks: list[asyncio.Task]):
 
     # Resolve run_ids for every platform in this job that produced posts.json.
     today = datetime.now().strftime("%Y-%m-%d")
-    job_dir = FEED_DATA_DIR / today / f"job_{job_id}"
+    data_root = get_collected_data_dir()
+    job_dir = data_root / today / f"job_{job_id}"
     if not job_dir.exists():
         return
     run_ids = [
@@ -223,8 +238,9 @@ async def get_history():
 
     runs = _walk_hierarchy()
     # Enrich with run_log summaries
+    data_root = get_collected_data_dir()
     for run in runs:
-        run_dir = FEED_DATA_DIR / run["run_id"]
+        run_dir = data_root / run["run_id"]
         run_log = run_dir / "run_log.json"
         if run_log.exists():
             try:
