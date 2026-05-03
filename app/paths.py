@@ -127,7 +127,7 @@ def get_default_config() -> dict:
     return {
         "output_dir": str(FEED_DATA_DIR),
         "platforms": {
-            "twitter": {
+            "x": {
                 "enabled": True,
                 "scroll_delay_min": 2,
                 "scroll_delay_max": 5,
@@ -137,7 +137,7 @@ def get_default_config() -> dict:
                 "max_reply_tweets": 20,
                 "max_replies_per_tweet": 5,
                 "reply_batch_size": 4,
-                "session_file": str(SESSION_DIR / "twitter_state.json"),
+                "session_file": str(SESSION_DIR / "x_state.json"),
             },
             "threads": {
                 "enabled": True,

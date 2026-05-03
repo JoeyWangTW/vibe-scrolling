@@ -1,7 +1,7 @@
 """Platform registry for feed collectors."""
 
 PLATFORMS = {
-    "twitter": "src.platforms.twitter.collector",
+    "x": "src.platforms.x.collector",
     "threads": "src.platforms.threads.collector",
     "instagram": "src.platforms.instagram.collector",
     "youtube": "src.platforms.youtube.collector",

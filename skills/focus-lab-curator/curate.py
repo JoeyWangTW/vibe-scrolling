@@ -2,7 +2,7 @@
 """Focus Lab Curator — score one collection job against the user's goals.
 
 A job is `data/YYYY-MM-DD/job_HHMMSS/` and contains one platform subfolder
-per source (twitter, threads, instagram, youtube, linkedin). Each holds a
+per source (x, threads, instagram, youtube, linkedin). Each holds a
 `posts.json`. This script gathers every post in the job, scores them all
 together against `goals.md`, and writes one combined
 `posts.filtered.json` at the job root — so the AI Curation tab can rank

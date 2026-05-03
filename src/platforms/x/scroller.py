@@ -1,4 +1,4 @@
-"""Scroll automation — timing, depth, stop conditions for Twitter."""
+"""Scroll automation — timing, depth, stop conditions for X."""
 
 import asyncio
 import random
@@ -8,7 +8,7 @@ from datetime import datetime
 TWITTER_DATE_FORMAT = "%a %b %d %H:%M:%S %z %Y"
 
 
-def _parse_twitter_date(date_str: str) -> datetime | None:
+def _parse_x_date(date_str: str) -> datetime | None:
     try:
         return datetime.strptime(date_str, TWITTER_DATE_FORMAT)
     except (ValueError, TypeError):
@@ -17,7 +17,7 @@ def _parse_twitter_date(date_str: str) -> datetime | None:
 
 def _has_post_older_than(posts, oldest_dt: datetime) -> bool:
     for post in posts:
-        dt = _parse_twitter_date(post.created_at)
+        dt = _parse_x_date(post.created_at)
         if dt and dt.date() < oldest_dt.date():
             return True
     return False

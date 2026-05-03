@@ -1,7 +1,7 @@
 {
   "output_dir": "feed_data",
   "platforms": {
-    "twitter": {
+    "x": {
       "enabled": true,
       "scroll_delay_min": 2,
       "scroll_delay_max": 5,
@@ -11,7 +11,7 @@
       "max_reply_tweets": 20,
       "max_replies_per_tweet": 5,
       "reply_batch_size": 4,
-      "session_file": "session/twitter_state.json"
+      "session_file": "session/x_state.json"
     },
     "threads": {
       "enabled": true,

@@ -1,4 +1,4 @@
-"""GraphQL response interception and parsing for Twitter."""
+"""GraphQL response interception and parsing for X."""
 
 import json
 import re
@@ -9,7 +9,7 @@ from src.models import Post
 
 
 class ResponseInterceptor:
-    """Intercepts and stores Twitter GraphQL API responses."""
+    """Intercepts and stores X GraphQL API responses."""
 
     GRAPHQL_PATTERN = re.compile(r"/i/api/graphql/.*/Home")
 
@@ -163,7 +163,7 @@ class ResponseInterceptor:
                 if inner:
                     return Post(
                         id=tweet_id,
-                        platform="twitter",
+                        platform="x",
                         text=inner.text,
                         author_handle=inner.author_handle,
                         author_name=inner.author_name,
@@ -213,7 +213,7 @@ class ResponseInterceptor:
 
             return Post(
                 id=tweet_id,
-                platform="twitter",
+                platform="x",
                 text=text,
                 author_handle=author_handle,
                 author_name=author_name,

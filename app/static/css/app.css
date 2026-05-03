@@ -93,7 +93,7 @@
     --transition: 0.18s ease;
 
     /* Platform colors (brand constants, not theme-dependent) */
-    --color-twitter: #1da1f2;
+    --color-x: #1da1f2;
     --color-threads: #71717a;
     --color-instagram: #e1306c;
     --color-youtube: #ff0033;
@@ -1047,7 +1047,7 @@ a:hover { color: var(--accent); }
 .badge-warning { background: var(--warning-subtle); color: var(--warning); }
 .badge-danger { background: var(--danger-subtle); color: var(--danger); }
 
-.badge-twitter { background: rgba(29, 161, 242, 0.12); color: var(--color-twitter); }
+.badge-x { background: rgba(29, 161, 242, 0.12); color: var(--color-x); }
 .badge-threads { background: rgba(255, 255, 255, 0.08); color: var(--color-threads); }
 .badge-instagram { background: rgba(225, 48, 108, 0.12); color: var(--color-instagram); }
 .badge-youtube { background: rgba(255, 68, 68, 0.12); color: var(--color-youtube); }
@@ -1138,7 +1138,7 @@ input[type="radio"] {
 }
 
 /* All brand icons render monochrome (foreground color). */
-.platform-icon-twitter,
+.platform-icon-x,
 .platform-icon-threads,
 .platform-icon-instagram,
 .platform-icon-youtube,

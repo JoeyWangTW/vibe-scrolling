@@ -12,7 +12,7 @@ from src.storage import create_job_id
 
 router = APIRouter()
 
-PLATFORMS = ["twitter", "threads", "instagram", "youtube", "linkedin"]
+PLATFORMS = ["x", "threads", "instagram", "youtube", "linkedin"]
 
 
 def _load_config() -> dict:
@@ -48,8 +48,8 @@ async def _run_collection(task, platform: str, config: dict):
             if platform in config.get("platforms", {}):
                 config["platforms"][platform]["max_posts"] = task.progress["max_posts_override"]
 
-        if platform == "twitter":
-            from src.platforms.twitter.collector import run
+        if platform == "x":
+            from src.platforms.x.collector import run
         elif platform == "threads":
             from src.platforms.threads.collector import run
         elif platform == "instagram":

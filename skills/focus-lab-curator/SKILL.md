@@ -27,7 +27,7 @@ Inside the user's Focus Lab workspace:
   data/
     YYYY-MM-DD/
       job_HHMMSS/              ← one collection job (this is what you curate)
-        twitter/posts.json
+        x/posts.json
         threads/posts.json
         instagram/posts.json
         youtube/posts.json
@@ -186,7 +186,7 @@ Iterate until they approve. Write the file to `<workspace>/goals.md` (the worksp
      "metadata": { ... },
      "posts": [
        {
-         "id": "...", "platform": "twitter|threads|instagram|youtube|linkedin",
+         "id": "...", "platform": "x|threads|instagram|youtube|linkedin",
          "text": "...", "author_handle": "...", "author_name": "...",
          "created_at": "...", "url": "...",
          "likes": 0, "reposts": 0, "replies": 0, "quotes": 0,
@@ -286,7 +286,7 @@ Shape:
     "filtered_at": "ISO-8601 timestamp",
     "workspace": "<absolute workspace path>",
     "job": "YYYY-MM-DD/job_HHMMSS",
-    "platforms": ["twitter", "linkedin", ...],
+    "platforms": ["x", "linkedin", ...],
     "goals_snapshot": "<entire raw text of goals.md at filter time>",
     "source_posts": <int>,
     "kept_posts": <int>,
@@ -295,7 +295,7 @@ Shape:
     "median_score": <int — over kept posts>,
     "avg_score": <number — over kept posts>,
     "category_counts": { "goal": <int>, "joy": <int>, "adjacent": <int>, "drain": <int>, "neutral": <int> },
-    "platform_counts": { "twitter": <int>, "linkedin": <int>, ... },
+    "platform_counts": { "x": <int>, "linkedin": <int>, ... },
     "dropped": [
       { "id": "...", "score": <int>, "category": "drain|neutral|...", "filter_reason": "...", "platform": "..." },
       ...
@@ -329,14 +329,14 @@ Shape:
 
 Print a short summary. Example:
 
-> Filtered **111** posts in **2026-05-02/job_020746** (twitter · linkedin · youtube) using `goals.md`.
+> Filtered **111** posts in **2026-05-02/job_020746** (x · linkedin · youtube) using `goals.md`.
 > **Kept:** 92 · **Dropped:** 19 (rule: `category=drain OR score<=19`)
 > **Median score (kept):** 58  ·  **Categories (kept):** 34 goal · 28 joy · 30 adjacent · 0 drain
-> **Per-platform kept:** twitter 41 · linkedin 28 · youtube 23
+> **Per-platform kept:** x 41 · linkedin 28 · youtube 23
 >
-> Highest: @someone (88, twitter) — "Directly on your learning-ML goal; good source."
+> Highest: @someone (88, x) — "Directly on your learning-ML goal; good source."
 > Joyful: @cats (81, instagram) — "Cat video — you flagged pets as joy."
-> Sample drop: @outrage_account (5, drain, twitter) — "Drama/outrage loop, matches your avoid list."
+> Sample drop: @outrage_account (5, drain, x) — "Drama/outrage loop, matches your avoid list."
 >
 > Next: open the Focus Lab Feed app's **AI Curation** tab — the curated job will be there.
 

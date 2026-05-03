@@ -14,14 +14,14 @@ def load_config() -> dict:
     config_path = Path("config.json")
     if not config_path.exists():
         print("[collect] config.json not found, using defaults")
-        return {"output_dir": "feed_data", "platforms": {"twitter": {"enabled": True}}}
+        return {"output_dir": "feed_data", "platforms": {"x": {"enabled": True}}}
     return json.loads(config_path.read_text())
 
 
 async def run_platform(platform: str, config: dict):
     """Run a single platform's collector."""
-    if platform == "twitter":
-        from src.platforms.twitter.collector import run
+    if platform == "x":
+        from src.platforms.x.collector import run
         return await run(config)
     elif platform == "threads":
         from src.platforms.threads.collector import run
@@ -44,7 +44,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Feed Collector")
     parser.add_argument(
         "--platform", "-p",
-        choices=["twitter", "threads", "instagram", "youtube", "linkedin"],
+        choices=["x", "threads", "instagram", "youtube", "linkedin"],
         help="Run a specific platform (default: all enabled)",
     )
     args = parser.parse_args()

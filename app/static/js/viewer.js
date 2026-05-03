@@ -205,7 +205,7 @@ window.ViewerPage = {
 
         const html = (t) => {
             const postId = (t.id || Math.random().toString(36).slice(2)).toString();
-            const platform = t.platform || 'twitter';
+            const platform = t.platform || 'x';
             const hasReplies = t.top_replies && t.top_replies.length > 0;
 
             const repliesSection = hasReplies ? `

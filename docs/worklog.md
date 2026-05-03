@@ -1,5 +1,21 @@
 # Work Log
 
+## 2026-05-02 - Rename twitter → x
+
+Twitter has been "X" for years; the codebase finally catches up.
+
+- Renamed `src/platforms/twitter/` → `src/platforms/x/` (`git mv`); all imports updated.
+- Slug `"twitter"` → `"x"` everywhere it appeared as an identifier: PLATFORMS lists in `app/api/collection.py` + `src/platforms/__init__.py`, choices in `src/collect.py`, PLATFORM_LOGIN_URLS + PLATFORM_VERIFY in `app/tasks/auth_task.py`, `app/paths.py` default config block, `config.json`, frontend `platform-icons.js` (PATHS / NAMES key, display name "X"), `post-renderer.js`, `viewer.js`, `collection.js`, CSS variables (`--color-x`, `.badge-x`, `.platform-icon-x`), and `skills/focus-lab-curator/SKILL.md` examples.
+- Login URL switched from `twitter.com/login` → `x.com/login`. Existing `still_on_login` patterns (`/login`, `/i/flow/login`) stay valid at x.com.
+- Session file renamed: `session/twitter_state.json` → `session/x_state.json` (in both repo `session/` and `~/Library/Application Support/Focus Lab Feed Collector/session/`).
+- Migrated active workspace data: `~/Documents/vibe-scrolling-data/data/2026-05-02/job_021736/twitter/` → `…/x/`, rewrote `posts.json` (`platform: "twitter"` → `"x"`, `…/twitter/media/…` → `…/x/media/…`), `run_log.json`, and `posts.filtered.json` (including `filter_metadata.platforms` and `platform_counts` keys).
+- Comments referencing the old slug in legacy migration code (`src/storage.py`, `app/api/data.py`) intentionally left — they describe the historical flat-format migration and dropping them would lose context.
+- Old `feed_data/` and the prior workspace's data left untouched per the earlier "leave it" decision.
+
+Verified: `/api/auth/status` returns `x` (connected), `/api/curated/jobs` shows the curated job with `platform_counts.x: 59` and `platforms: [..., 'x', 'youtube']`, `/api/data/runs` lists `2026-05-02/job_021736/x` with 63 posts.
+
+Found-but-not-fixed: media downloader has a race condition when multiple platforms collect in parallel (`_current_run_dir` is a module global). Some X posts in the existing job ended up with media saved into `linkedin/media/` instead of `x/media/`. Pre-existing bug, separate fix.
+
 ## 2026-05-02 - Workspace IS the data dir + per-job curation, drop auto-export
 
 Followup to the workspace-as-data-dir refactor. Three things ship together:

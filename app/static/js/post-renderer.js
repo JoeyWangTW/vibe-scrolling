@@ -13,7 +13,7 @@
 'use strict';
 
 const PLATFORM_LINKS = {
-    twitter:   { mention: h => `https://x.com/${h}`,                  hashtag: h => `https://x.com/hashtag/${h}` },
+    x:         { mention: h => `https://x.com/${h}`,                  hashtag: h => `https://x.com/hashtag/${h}` },
     threads:   { mention: h => `https://threads.net/@${h}`,           hashtag: h => `https://threads.net/search?q=%23${h}` },
     instagram: { mention: h => `https://instagram.com/${h}`,          hashtag: h => `https://instagram.com/explore/tags/${h}` },
     youtube:   { mention: h => `https://youtube.com/@${h}`,           hashtag: h => `https://youtube.com/results?search_query=%23${h}` },
@@ -25,7 +25,7 @@ function esc(s) {
 }
 
 function formatText(text, platform) {
-    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.twitter;
+    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.x;
     return (text || '')
         .replace(/&amp;/g, '&')
         .replace(/(https?:\/\/t\.co\/\S+)/g, '')
@@ -86,7 +86,7 @@ function toggleReadMore(postId) {
 
 function renderQuoted(q, platform) {
     if (!q) return '';
-    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.twitter;
+    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.x;
     const name = esc(q.author_name || q.author_handle || 'Unknown');
     const handle = q.author_handle
         ? `<span class="post-handle text-xs"><a href="${links.mention(q.author_handle)}" target="_blank" rel="noopener">@${esc(q.author_handle)}</a></span>`
@@ -153,7 +153,7 @@ function renderMedia(post, platform, resolver) {
  * Build the full .post card HTML.
  *
  * opts (all optional):
- *   platform:          override post.platform (defaults to post.platform || 'twitter')
+ *   platform:          override post.platform (defaults to post.platform || 'x')
  *   postId:            used for toggle ids (defaults to post.id or random)
  *   showPlatformBadge: whether to render a platform-color badge in header (default true)
  *   mediaResolver:     (path) => URL  — resolves local_media_paths to fetchable URLs
@@ -164,11 +164,11 @@ function renderMedia(post, platform, resolver) {
  */
 function renderPost(post, opts) {
     opts = opts || {};
-    const platform = opts.platform || post.platform || 'twitter';
+    const platform = opts.platform || post.platform || 'x';
     const postId = opts.postId || post.id || Math.random().toString(36).slice(2);
     const showPlatformBadge = opts.showPlatformBadge !== false;
     const resolver = opts.mediaResolver;
-    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.twitter;
+    const links = PLATFORM_LINKS[platform] || PLATFORM_LINKS.x;
 
     const authorDisplay = esc(post.author_name || post.author_handle || 'Unknown');
     const handleHtml = post.author_handle
@@ -182,8 +182,8 @@ function renderPost(post, opts) {
         ? `<span class="badge badge-${platform} mr-2">${platform}</span>`
         : '';
 
-    const repostLabel = platform === 'twitter' ? 'Retweeted' : 'Reposted';
-    const repostStatLabel = platform === 'twitter' ? 'RT' : 'reposts';
+    const repostLabel = platform === 'x' ? 'Retweeted' : 'Reposted';
+    const repostStatLabel = platform === 'x' ? 'RT' : 'reposts';
     const repostBadge = post.is_repost
         ? `<div class="repost-label">${repostLabel} by @${esc(post.original_author || 'unknown')}</div>` : '';
 
