@@ -73,9 +73,12 @@ README_MD = """# Focus Lab Feed — Workspace
 Everything Focus Lab Feed needs lives here.
 
 - `data/` — collected feeds land here automatically (date / job / platform).
-- `skills/focus-lab-curator/` — the curator skill for Claude Code / Cursor / Codex.
+- `skills/focus-lab-curator/` — the curator tool kit (the skill instructions,
+  `curate.py` for batch scoring, and `viewer.html` for previewing a curated
+  job in a phone-shaped browser).
 - `.claude/skills/focus-lab-curator/` — Claude Code auto-discovery (symlink).
-- `goals.md` — your default content preferences.
+- `goals.md` — your default content preferences (the skill interviews you
+  to fill this in on first use).
 - `CLAUDE.md` / `AGENTS.md` — instructions that point agents at the skill.
 
 ## Flow
@@ -88,14 +91,15 @@ Everything Focus Lab Feed needs lives here.
        cd ~/Focus Lab Feed
        claude                         # then: "curate the latest feed"
 
-   The skill scores posts against `./goals.md` and writes a filtered JSON
-   file alongside the data.
+   On the first run the skill interviews you to populate `goals.md`. After
+   that, it scores posts against your goals and writes a filtered JSON file
+   alongside the data.
 3. **View** — open the Focus Lab Feed app's **AI Curation** tab. Curated
    results show up automatically.
 
-If you ever want to share a curated pack with someone, the **Data** tab in
-the app has an "Output as pack" action that bundles posts + media into a
-self-contained folder. Day-to-day curation doesn't need it.
+If you ever want to share a curated job with someone, an "Output as pack"
+action will bundle just `posts.json` + `media/` into a self-contained
+folder. Day-to-day curation doesn't need it.
 
 ## Goals
 

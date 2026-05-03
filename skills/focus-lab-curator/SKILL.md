@@ -123,10 +123,15 @@ The user will typically run you from inside their Focus Lab workspace — a fold
 Start by orienting:
 
 1. **Find the workspace.** If CWD has `data/` or `goals.md`, you're there. Otherwise walk up until you find one (the script does this automatically; you should reason the same way).
-2. **Look for `goals.md` at the workspace root.** If missing or essentially empty, run the **Bootstrap flow** first.
+2. **Look for `goals.md` at the workspace root.** Decide which case you're in:
+   - **Missing file** → run the **Bootstrap flow**.
+   - **Untouched template** (every content section's body is `- (none yet)`, the freeform section is `(nothing yet)`, or both) → run the **Bootstrap flow**. The desktop app drops a template at workspace setup so the file always exists; an unedited template is the signal that the user hasn't onboarded yet. Don't curate against it — without stated goals you'll produce a feed with zero `goal`-category posts, which is exactly what we're trying to avoid.
+   - **Has real content** → run the **Filter flow** directly.
 3. **Pick a job.** Latest under `data/` by default; honor the user's request if they name a specific date / job.
 4. Briefly echo the goals so the user can redirect before you spend tokens scoring.
 5. Run the **Filter flow**.
+
+`curate.py` enforces the same rule: if it sees an untouched template, it exits early with a message telling you to run the Bootstrap flow first. So if the script refuses, run Bootstrap before retrying.
 
 ---
 

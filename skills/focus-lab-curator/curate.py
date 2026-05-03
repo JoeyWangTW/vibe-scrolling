@@ -51,6 +51,12 @@ DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
 JOB_DIR_RE = re.compile(r"^job_\d{6}$")
 DATE_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# Sentinel strings the workspace template ships with. If every content
+# section's body still matches one of these, the user hasn't onboarded yet
+# and we should refuse to curate (otherwise the model has nothing to score
+# against and produces a zero-goal feed).
+TEMPLATE_SENTINELS = ("- (none yet)", "(nothing yet)", "(none yet)")
+
 
 PROMPT = """You are scoring a batch of social-media posts against a user's content preferences.
 
@@ -272,6 +278,32 @@ def parse_job_arg(arg: str) -> tuple[str, str]:
     return datetime.now().strftime("%Y-%m-%d"), job_id
 
 
+def goals_is_untouched_template(goals_text: str) -> bool:
+    """Return True if every content section in goals.md still holds the
+    template sentinel (`- (none yet)` / `(nothing yet)`).
+
+    Strips HTML comments and headers before checking. We allow header lines
+    (`## ...`), blank lines, comments, and sentinel lines — anything else
+    means the user has actually written content.
+    """
+    if not goals_text or not goals_text.strip():
+        return True
+    # Remove HTML comments (multi-line)
+    text = re.sub(r"<!--.*?-->", "", goals_text, flags=re.DOTALL)
+    has_real_content = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("#"):                       # heading
+            continue
+        if any(line == s or line.startswith(s) for s in TEMPLATE_SENTINELS):
+            continue                                   # sentinel = still template
+        has_real_content = True
+        break
+    return not has_real_content
+
+
 def load_job_posts(job_dir: Path) -> tuple[list[dict], list[str]]:
     """Read every platform's posts.json under the job and return one big list.
 
@@ -348,7 +380,26 @@ def main() -> int:
     cli_name, runner = detect_cli(args.cli)
     print(f"CLI:       {cli_name}", file=sys.stderr)
 
-    goals = goals_path.read_text() if goals_path.exists() else "(no goals.md yet — score charitably)"
+    if not goals_path.exists():
+        sys.exit(
+            f"error: {goals_path} not found.\n"
+            "Run an agent (Claude Code, Cursor, Codex, …) in the workspace and ask\n"
+            "it to curate — the skill will interview you and write goals.md."
+        )
+    goals = goals_path.read_text()
+    if goals_is_untouched_template(goals):
+        sys.exit(
+            f"error: {goals_path} is still the untouched template.\n"
+            "Without stated goals, the curator can't categorize anything as\n"
+            "`goal` and produces a feed of joy/adjacent/neutral only — exactly\n"
+            "the boring outcome we're trying to avoid.\n"
+            "\n"
+            "Either:\n"
+            "  • Edit goals.md by hand (replace the `- (none yet)` lines), OR\n"
+            "  • Run an agent in this workspace and ask it to curate — the\n"
+            "    skill will interview you (5 questions) and write goals.md\n"
+            "    for you, then run scoring."
+        )
 
     total_batches = (len(posts) + args.batch - 1) // args.batch
     concurrency = max(1, min(args.concurrency, total_batches))
