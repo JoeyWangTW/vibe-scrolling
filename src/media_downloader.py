@@ -65,10 +65,10 @@ async def download_media(
 
     async with aiohttp.ClientSession() as session:
         for idx, (post, url, dest, is_video, platform) in enumerate(tasks, 1):
-            # Only apply Twitter's format suffix for Twitter images
+            # Only apply X's format suffix for X images
             if is_video:
                 download_url = url
-            elif platform == "twitter":
+            elif platform == "x":
                 download_url = _image_download_url(url)
             else:
                 download_url = url

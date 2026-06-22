@@ -2,25 +2,35 @@
 
 import asyncio
 import json
-from datetime import datetime
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.paths import CONFIG_PATH, FEED_DATA_DIR
+from app.paths import CONFIG_PATH, get_collected_data_dir
 from app.tasks.manager import task_manager
 from src.storage import create_job_id
 
 router = APIRouter()
 
-PLATFORMS = ["twitter", "threads", "instagram", "youtube"]
+PLATFORMS = ["x", "threads", "instagram", "youtube", "linkedin"]
 
 
 def _load_config() -> dict:
+    """Load config and force `output_dir` to the active data dir.
+
+    The on-disk config.json may carry a stale `output_dir` from before the
+    workspace existed. Always override so collections land where the rest of
+    the app reads them (workspace/data when set up, FEED_DATA_DIR otherwise).
+    """
+    cfg = {}
     if CONFIG_PATH.exists():
-        return json.loads(CONFIG_PATH.read_text())
-    return {"output_dir": str(FEED_DATA_DIR), "platforms": {}}
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            cfg = {}
+    cfg.setdefault("platforms", {})
+    cfg["output_dir"] = str(get_collected_data_dir())
+    return cfg
 
 
 class CollectionRequest(BaseModel):
@@ -38,14 +48,16 @@ async def _run_collection(task, platform: str, config: dict):
             if platform in config.get("platforms", {}):
                 config["platforms"][platform]["max_posts"] = task.progress["max_posts_override"]
 
-        if platform == "twitter":
-            from src.platforms.twitter.collector import run
+        if platform == "x":
+            from src.platforms.x.collector import run
         elif platform == "threads":
             from src.platforms.threads.collector import run
         elif platform == "instagram":
             from src.platforms.instagram.collector import run
         elif platform == "youtube":
             from src.platforms.youtube.collector import run
+        elif platform == "linkedin":
+            from src.platforms.linkedin.collector import run
         else:
             task.status = "failed"
             task.error = f"Unknown platform: {platform}"
@@ -68,64 +80,6 @@ async def _run_collection(task, platform: str, config: dict):
         print(f"[collection:{platform}] Failed: {e}")
 
 
-# Per-job dedupe: the UI fires /collection/start/{platform} once per platform,
-# and each call schedules its own auto-export coordinator. Without a guard,
-# 4 platforms = 4 export folders. First coordinator per job_id wins; the rest
-# return immediately.
-_auto_exported_jobs: set[str] = set()
-_auto_export_lock = asyncio.Lock()
-
-
-async def _maybe_auto_export(job_id: str, tasks: list[asyncio.Task]):
-    """Coordinator: after every platform in this job finishes, run a single
-    curation export if `config.auto_export` is enabled. Fire-and-forget from
-    /start. Idempotent per job_id — multiple callers collapse to one export."""
-    async with _auto_export_lock:
-        if job_id in _auto_exported_jobs:
-            return
-        _auto_exported_jobs.add(job_id)
-
-    # Brief debounce so any sibling /start/{platform} calls under this job_id
-    # have time to register their TrackedTasks before we snapshot the list.
-    await asyncio.sleep(0.5)
-
-    sibling_async_tasks = [
-        t._asyncio_task for t in task_manager.get_collection_tasks_by_job(job_id)
-        if t._asyncio_task is not None
-    ]
-    # Wait on the union of explicitly-passed tasks and any sibling tasks
-    # discovered via task_manager — ensures we export ONCE, after the last
-    # platform under this job_id finishes.
-    await asyncio.gather(*sibling_async_tasks, *tasks, return_exceptions=True)
-
-    cfg = _load_config()
-    if not cfg.get("auto_export"):
-        return
-
-    # Resolve run_ids for every platform in this job that produced posts.json.
-    today = datetime.now().strftime("%Y-%m-%d")
-    job_dir = FEED_DATA_DIR / today / f"job_{job_id}"
-    if not job_dir.exists():
-        return
-    run_ids = [
-        f"{today}/job_{job_id}/{p.name}"
-        for p in job_dir.iterdir()
-        if p.is_dir() and (p / "posts.json").exists()
-    ]
-    if not run_ids:
-        return
-
-    # Call the curation export endpoint in-process so we reuse its logic
-    # (media copy, goals.md bundling, viewer.html, curate.py, README).
-    try:
-        from app.api.export import CurationExportRequest, export_curation
-        result = await export_curation(CurationExportRequest(run_ids=run_ids))
-        print(f"[auto-export] job {job_id}: wrote {result.get('path')} "
-              f"({result.get('post_count')} posts, {result.get('media_count')} media)")
-    except Exception as e:
-        print(f"[auto-export] job {job_id} failed: {e}")
-
-
 @router.post("/start")
 async def start_collection(request: CollectionRequest):
     config = _load_config()
@@ -133,7 +87,6 @@ async def start_collection(request: CollectionRequest):
     job_id = create_job_id()
     config["_job_id"] = job_id
     started = []
-    spawned_tasks: list[asyncio.Task] = []
 
     for platform in request.platforms:
         if platform not in PLATFORMS:
@@ -149,12 +102,7 @@ async def start_collection(request: CollectionRequest):
             task.progress["max_posts_override"] = request.max_posts
 
         task._asyncio_task = asyncio.create_task(_run_collection(task, platform, config))
-        spawned_tasks.append(task._asyncio_task)
         started.append({"platform": platform, "task_id": task.task_id, "status": "started"})
-
-    # Fire-and-forget coordinator — auto-export once all platforms finish.
-    if spawned_tasks:
-        asyncio.create_task(_maybe_auto_export(job_id, spawned_tasks))
 
     return {"tasks": started, "job_id": job_id}
 
@@ -176,11 +124,6 @@ async def start_single_collection(platform: str, max_posts: int | None = None, j
         task.progress["max_posts_override"] = max_posts
 
     task._asyncio_task = asyncio.create_task(_run_collection(task, platform, config))
-
-    # Fire-and-forget auto-export coordinator (no-op unless config.auto_export).
-    # Per-job dedupe inside _maybe_auto_export keeps multi-platform UI starts
-    # from producing one pack per platform.
-    asyncio.create_task(_maybe_auto_export(config["_job_id"], [task._asyncio_task]))
 
     return {"task_id": task.task_id, "status": task.status, "platform": platform, "job_id": config["_job_id"]}
 
@@ -223,8 +166,9 @@ async def get_history():
 
     runs = _walk_hierarchy()
     # Enrich with run_log summaries
+    data_root = get_collected_data_dir()
     for run in runs:
-        run_dir = FEED_DATA_DIR / run["run_id"]
+        run_dir = data_root / run["run_id"]
         run_log = run_dir / "run_log.json"
         if run_log.exists():
             try:

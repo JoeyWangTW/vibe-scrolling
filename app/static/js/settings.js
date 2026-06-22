@@ -1,15 +1,13 @@
 /**
- * Settings page — three sections:
+ * Settings page — two sections:
  *   1. Connected accounts (the old Platforms page)
- *   2. Export folder (workspace path + change…)
- *   3. Auto-export toggle (on/off persisted via /api/workspace/auto-export)
+ *   2. Workspace folder (where collections + curation live)
  *
  * Replaces the standalone Platforms tab. Onboarding still owns first-time
  * connection + workspace setup; this page is for ongoing changes.
  */
 window.SettingsPage = {
     workspace: null,
-    autoExport: false,
     _platformPolls: {},
 
     render() {
@@ -29,16 +27,12 @@ window.SettingsPage = {
                     <div class="card flex-center text-secondary" style="padding:40px">Loading…</div>
                 </div>
 
-                <h2 class="section-title">Export folder</h2>
+                <h2 class="section-title">Workspace folder</h2>
                 <p class="text-secondary text-sm mb-3">
-                    Curation packs land here. Anything inside iCloud Drive will sync to your phone.
+                    Collected feeds, your <code>goals.md</code>, and curated results all live here.
+                    Anything inside iCloud Drive will sync to your phone.
                 </p>
                 <div class="card" id="settings-workspace-card">
-                    <div class="text-secondary">Loading…</div>
-                </div>
-
-                <h2 class="section-title">Auto-export</h2>
-                <div class="card" id="settings-autoexport-card">
                     <div class="text-secondary">Loading…</div>
                 </div>
             </div>
@@ -65,21 +59,16 @@ window.SettingsPage = {
     },
 
     _renderPlatforms(status) {
-        const meta = {
-            twitter:   { name: 'Twitter / X', icon: '𝕏' },
-            threads:   { name: 'Threads',     icon: '@' },
-            instagram: { name: 'Instagram',   icon: '📷' },
-            youtube:   { name: 'YouTube',     icon: '▶' },
-        };
         const cards = Object.entries(status).map(([platform, info]) => {
-            const m = meta[platform] || { name: platform, icon: '?' };
+            const name = PlatformIcons.name(platform);
+            const icon = PlatformIcons.svg(platform, { size: 28 }) || '?';
             const connected = !!(info && info.connected);
             return `
                 <div class="card platform-${platform}" id="settings-card-${platform}">
                     <div class="card-header">
-                        <div class="platform-icon">${m.icon}</div>
+                        <div class="platform-icon platform-icon-${platform}">${icon}</div>
                         <div>
-                            <div class="font-semibold text-subtitle">${m.name}</div>
+                            <div class="font-semibold text-subtitle">${name}</div>
                             <div class="text-sm text-secondary">
                                 <span class="dot ${connected ? 'dot-success' : 'dot-muted'}"></span>
                                 ${connected ? 'Connected' : 'Not connected'}
@@ -192,14 +181,7 @@ window.SettingsPage = {
         } catch (e) {
             this.workspace = { is_setup: false };
         }
-        try {
-            const r = await api('/workspace/auto-export');
-            this.autoExport = !!(r && r.enabled);
-        } catch (e) {
-            this.autoExport = false;
-        }
         this._renderWorkspace();
-        this._renderAutoExport();
     },
 
     _renderWorkspace() {
@@ -212,7 +194,7 @@ window.SettingsPage = {
                 <div class="setup-box">
                     <div class="setup-title">Pick a workspace folder</div>
                     <p class="text-secondary text-sm mb-3">
-                        Curation packs and your <code>goals.md</code> live here. The app will create the
+                        Collected feeds and your <code>goals.md</code> live here. The app will create the
                         folder if it doesn't exist.
                     </p>
                     <div class="setup-row">
@@ -235,33 +217,8 @@ window.SettingsPage = {
                 <button class="btn btn-secondary btn-sm" onclick="SettingsPage.changeWorkspace()">Change…</button>
             </div>
             <p class="text-secondary text-xs mt-2">
-                Exports land in <code>${pretty}/exports/</code>.
+                Collections land in <code>${pretty}/data/</code>.
             </p>
-        `;
-    },
-
-    _renderAutoExport() {
-        const card = document.getElementById('settings-autoexport-card');
-        if (!card) return;
-        const checked = this.autoExport ? 'checked' : '';
-        const isSetup = this.workspace && this.workspace.is_setup;
-        card.innerHTML = `
-            <label class="auto-export-toggle" ${isSetup ? '' : 'style="opacity:0.55;pointer-events:none"'}>
-                <span class="auto-export-text">
-                    <strong>Auto-export after every collection</strong>
-                    <span class="text-secondary text-xs">
-                        Packs your latest run into a curation-ready folder automatically. Disk-space note:
-                        images and videos add up over time. Off by default — flip on if you want zero
-                        manual steps after collecting.
-                    </span>
-                </span>
-                <span class="toggle-switch">
-                    <input type="checkbox" id="settings-auto-export" ${checked}
-                           onchange="SettingsPage.toggleAutoExport(this.checked)" ${isSetup ? '' : 'disabled'}>
-                    <span class="toggle-slider"></span>
-                </span>
-            </label>
-            ${isSetup ? '' : `<p class="text-secondary text-xs mt-2">Set up an export folder above to enable.</p>`}
         `;
     },
 
@@ -327,21 +284,6 @@ window.SettingsPage = {
             await api('/workspace/reveal', { method: 'POST', body: JSON.stringify({}) });
         } catch (e) {
             console.warn('Reveal failed:', e);
-        }
-    },
-
-    async toggleAutoExport(enabled) {
-        try {
-            await api('/workspace/auto-export', {
-                method: 'POST',
-                body: JSON.stringify({ enabled }),
-            });
-            this.autoExport = !!enabled;
-        } catch (e) {
-            alert('Could not update auto-export: ' + e.message);
-            // Revert visual state
-            const cb = document.getElementById('settings-auto-export');
-            if (cb) cb.checked = !enabled;
         }
     },
 };

@@ -1,8 +1,12 @@
 # Project Status
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-05-02
 
-**Current state:** Desktop app rebranded to **Focus Lab — Vibe Scrolling** with a proper gated onboarding, a focused Curate-with-AI tab, and a clarified Export page. Multi-platform collection working (Twitter, Threads, Instagram, YouTube).
+**Current state:** Desktop app rebranded to **Focus Lab — Vibe Scrolling** with a proper gated onboarding, a focused Curate-with-AI tab, and a clarified Export page. Multi-platform collection working (Twitter, Threads, Instagram, YouTube, LinkedIn).
+
+## Recently Completed (2026-05-02)
+
+- **LinkedIn collector:** new `src/platforms/linkedin/` module wired through CLI, FastAPI, and the desktop UI (Platforms, Onboarding, Settings, Collect tabs). DOM-based extractor against `feed-shared-update-v2` cards; Voyager API responses archived as `raw/voyager_*.json` for future parsing.
 
 ## Recently Completed (2026-04-22)
 

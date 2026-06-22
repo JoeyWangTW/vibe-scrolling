@@ -1,4 +1,4 @@
-"""Twitter feed collector — orchestrates a collection run."""
+"""X feed collector — orchestrates a collection run."""
 
 import asyncio
 import json
@@ -13,17 +13,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from playwright.async_api import async_playwright
 
 from src.media_downloader import download_media
-from src.platforms.twitter.auth import load_session
-from src.platforms.twitter.interceptor import ResponseInterceptor
-from src.platforms.twitter.replies import fetch_replies
-from src.platforms.twitter.scroller import scroll_loop
+from src.platforms.x.auth import load_session
+from src.platforms.x.interceptor import ResponseInterceptor
+from src.platforms.x.replies import fetch_replies
+from src.platforms.x.scroller import scroll_loop
 from src.storage import deduplicate_within_run, get_run_dir, save_posts, save_run_summary, set_run_dir
 
 
 def print_summary(summary: dict):
     """Print a formatted collection run summary."""
     print("\n" + "=" * 50)
-    print("  Twitter Collection Summary")
+    print("  X Collection Summary")
     print("=" * 50)
     print(f"  Total posts captured:   {summary['total_posts']}")
     print(f"  Unique posts:           {summary['unique_posts']}")
@@ -42,15 +42,15 @@ def print_summary(summary: dict):
 
 
 async def run(config: dict) -> dict:
-    """Run the Twitter feed collector. Returns summary dict."""
+    """Run the X feed collector. Returns summary dict."""
     output_dir = config.get("output_dir", "feed_data")
-    platform_config = config.get("platforms", {}).get("twitter", config)
+    platform_config = config.get("platforms", {}).get("x", config)
 
     # Create a unique run directory
     job_id = config.get("_job_id")
-    run_dir = get_run_dir(output_dir, platform="twitter", job_id=job_id)
+    run_dir = get_run_dir(output_dir, platform="x", job_id=job_id)
     set_run_dir(run_dir)
-    print(f"[twitter] Run directory: {run_dir}")
+    print(f"[x] Run directory: {run_dir}")
 
     start_time = time.monotonic()
     warnings: list[str] = []
@@ -63,25 +63,25 @@ async def run(config: dict) -> dict:
         try:
             browser, context, page = await load_session(p, session_file=session_file)
         except (FileNotFoundError, RuntimeError) as e:
-            print(f"[twitter] {e}")
+            print(f"[x] {e}")
             return {"error": str(e)}
 
         page.on("response", interceptor.handle_response)
-        print("[twitter] GraphQL interceptor attached. Listening for Home timeline responses...")
+        print("[x] GraphQL interceptor attached. Listening for Home timeline responses...")
 
         await page.reload(wait_until="domcontentloaded")
-        print("[twitter] Page reloaded. Waiting for GraphQL responses...")
+        print("[x] Page reloaded. Waiting for GraphQL responses...")
 
         await page.wait_for_timeout(5000)
 
         count = len(interceptor.responses)
-        print(f"[twitter] Captured {count} GraphQL response(s) from initial page load.")
+        print(f"[x] Captured {count} GraphQL response(s) from initial page load.")
 
         if count == 0:
-            print("[twitter] No GraphQL responses captured. Waiting a few more seconds...")
+            print("[x] No GraphQL responses captured. Waiting a few more seconds...")
             await page.wait_for_timeout(5000)
             count = len(interceptor.responses)
-            print(f"[twitter] After extended wait: {count} response(s) captured.")
+            print(f"[x] After extended wait: {count} response(s) captured.")
             if count == 0:
                 warnings.append("No GraphQL responses captured after extended wait")
 
@@ -136,7 +136,7 @@ async def run(config: dict) -> dict:
             else:
                 replies_fetched = 0
 
-            save_posts(unique_posts, run_dir, platform="twitter", duration_seconds=duration)
+            save_posts(unique_posts, run_dir, platform="x", duration_seconds=duration)
         else:
             unique_posts = []
             dupes_removed = 0
@@ -148,7 +148,7 @@ async def run(config: dict) -> dict:
         duration = time.monotonic() - start_time
 
         summary = {
-            "platform": "twitter",
+            "platform": "x",
             "run_timestamp": datetime.now().isoformat(),
             "run_dir": str(run_dir),
             "total_posts": len(posts),

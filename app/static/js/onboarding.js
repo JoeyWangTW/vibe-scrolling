@@ -5,7 +5,7 @@
  *   1. welcome   — what this app does, emoji walkthrough
  *   2. setup     — download Chromium (skipped if already installed)
  *   3. connect   — hook up at least one social account
- *   4. workspace — pick export folder + auto-export toggle
+ *   4. workspace — pick the workspace folder (collections + curation live here)
  *   5. done      — summary, enter the app
  *
  * Main app stays hidden until finish() runs. Returning users (workspace
@@ -15,12 +15,11 @@
 (function () {
 'use strict';
 
-const PLATFORMS = [
-    { id: 'twitter',   name: 'Twitter / X', icon: '𝕏' },
-    { id: 'threads',   name: 'Threads',     icon: '@' },
-    { id: 'instagram', name: 'Instagram',   icon: '📷' },
-    { id: 'youtube',   name: 'YouTube',     icon: '▶' },
-];
+const PLATFORMS = PlatformIcons.list().map(id => ({
+    id,
+    name: PlatformIcons.name(id),
+    iconHtml: PlatformIcons.svg(id, { size: 24 }),
+}));
 
 const STEPS = ['welcome', 'setup', 'connect', 'workspace', 'done'];
 
@@ -31,7 +30,6 @@ window.Onboarding = {
         connected: {},       // platform -> bool
         workspacePath: '',   // what the user picked
         workspaceAbsPath: '',// absolute path from native picker, if any
-        autoExport: true,    // default on — user can turn off
         suggestedPath: '',
     },
 
@@ -233,7 +231,7 @@ window.Onboarding = {
         return `
             <div class="ob-platform-card ${connected ? 'is-connected' : ''}">
                 <div class="ob-platform-head">
-                    <div class="platform-icon">${p.icon}</div>
+                    <div class="platform-icon platform-icon-${p.id}">${p.iconHtml}</div>
                     <div class="ob-platform-name">${p.name}</div>
                 </div>
                 <div class="ob-platform-action">${action}</div>
@@ -250,8 +248,8 @@ window.Onboarding = {
                 <div class="ob-icon-big">📁</div>
                 <h1 class="ob-title">Where should your content live?</h1>
                 <p class="ob-lead">
-                    Collected posts, media, and curation packs go into this folder. Anywhere works
-                    — iCloud Drive is a nice pick if you want it to sync to your phone.
+                    Collected feeds, your <code>goals.md</code>, and curated results all live here.
+                    iCloud Drive is a nice pick if you want everything to sync to your phone.
                 </p>
 
                 <div class="ob-folder-box">
@@ -263,28 +261,6 @@ window.Onboarding = {
                     <div class="text-secondary text-xs mt-2">
                         We'll create the folder if it doesn't exist.
                     </div>
-                </div>
-
-                <label class="ob-auto-toggle">
-                    <span class="auto-export-text">
-                        <strong>Auto-export after each collection</strong>
-                        <span class="text-secondary text-xs">
-                            Packs your latest run into a curation-ready folder automatically.
-                            Heads up: images and videos can take up disk space over time.
-                        </span>
-                    </span>
-                    <span class="toggle-switch">
-                        <input type="checkbox" id="ob-auto-export" ${this.state.autoExport ? 'checked' : ''}>
-                        <span class="toggle-slider"></span>
-                    </span>
-                </label>
-
-                <div class="ob-hint" id="ob-auto-hint" ${this.state.autoExport ? 'hidden' : ''}>
-                    <span class="ob-hint-icon">💡</span>
-                    <span class="ob-hint-text">
-                        With auto-export off, head to the <strong>Export</strong> tab after
-                        collecting to pick specific days and platforms.
-                    </span>
                 </div>
 
                 <div class="ob-actions">
@@ -306,7 +282,7 @@ window.Onboarding = {
                 <h1 class="ob-title">You're all set.</h1>
                 <p class="ob-lead">
                     ${connectedCount} account${connectedCount === 1 ? '' : 's'} connected ·
-                    workspace at <code>${pretty}</code>${this.state.autoExport ? ' · auto-export <strong>on</strong>' : ''}.
+                    workspace at <code>${pretty}</code>.
                 </p>
                 <div class="ob-actions">
                     <button class="btn btn-primary btn-lg" id="ob-finish">Open Vibe Scrolling</button>
@@ -343,12 +319,6 @@ window.Onboarding = {
         if (this.step === 'workspace') {
             const pickBtn = document.getElementById('ob-ws-pick');
             if (pickBtn) pickBtn.addEventListener('click', () => this._pickFolder());
-            const auto = document.getElementById('ob-auto-export');
-            if (auto) auto.addEventListener('change', (e) => {
-                this.state.autoExport = e.target.checked;
-                const hint = document.getElementById('ob-auto-hint');
-                if (hint) hint.hidden = !!e.target.checked;
-            });
             const finish = document.getElementById('ob-finish-setup');
             if (finish) finish.addEventListener('click', () => this._commitWorkspace());
         }
@@ -517,16 +487,6 @@ window.Onboarding = {
             }
             this.state.workspaceAbsPath = result.workspace || raw;
             this.state.workspacePath = result.workspace || raw;
-            // Persist auto-export choice. Non-blocking — bad config is recoverable
-            // from the Export tab later, no reason to fail the whole flow.
-            try {
-                await api('/workspace/auto-export', {
-                    method: 'POST',
-                    body: JSON.stringify({ enabled: !!this.state.autoExport }),
-                });
-            } catch (e) {
-                console.warn('[onboarding] auto-export persist failed', e);
-            }
             window.dispatchEvent(new CustomEvent('workspace:updated'));
             this._advance('done');
         } catch (e) {

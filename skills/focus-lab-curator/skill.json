@@ -1,11 +1,12 @@
 {
   "name": "focus-lab-curator",
-  "version": "1.0.0",
-  "description": "Curate a Focus Lab Feed pack — score, drop, and reorder posts against the user's content goals.",
-  "updated_at": "2026-04-18",
+  "version": "2.1.0",
+  "description": "Curate one Focus Lab collection job — score and order every post in the job (across all connected platforms together) against the user's goals, then write posts.filtered.json the phone viewer reads.",
+  "updated_at": "2026-05-02",
   "files": [
     "SKILL.md",
     "curate.py",
+    "viewer.html",
     "install.md",
     "templates/goals.md"
   ]

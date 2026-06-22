@@ -10,19 +10,21 @@ from app.paths import SESSION_DIR
 from app.tasks.manager import TrackedTask
 
 PLATFORM_LOGIN_URLS = {
-    "twitter": "https://twitter.com/login",
+    "x": "https://x.com/login",
     "threads": "https://www.threads.net/login",
     "instagram": "https://www.instagram.com/accounts/login/",
     "youtube": "https://accounts.google.com/signin",
+    "linkedin": "https://www.linkedin.com/login",
 }
 
 # Navigate to login page — if logged in, the platform redirects you away.
 # "still_on_login" patterns mean the user is NOT logged in (stayed on login page).
 PLATFORM_VERIFY = {
-    "twitter": {"login_url": "https://twitter.com/login", "still_on_login": ["/login", "/i/flow/login"]},
+    "x": {"login_url": "https://x.com/login", "still_on_login": ["/login", "/i/flow/login"]},
     "threads": {"login_url": "https://www.threads.net/login", "still_on_login": ["/login"]},
     "instagram": {"login_url": "https://www.instagram.com/accounts/login/", "still_on_login": ["/accounts/login"]},
     "youtube": {"login_url": "https://accounts.google.com/signin", "still_on_login": ["accounts.google.com/"]},
+    "linkedin": {"login_url": "https://www.linkedin.com/login", "still_on_login": ["/login", "/uas/login", "/checkpoint"]},
 }
 
 

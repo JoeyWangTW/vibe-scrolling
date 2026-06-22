@@ -29,7 +29,7 @@ const App = window.App = {
             collect: window.CollectPage || { render: () => '<div class="empty-state"><div class="icon">&#9655;</div><p>Loading collection...</p></div>' },
             viewer: window.ViewerPage || { render: () => '<div class="empty-state"><div class="icon">&#9776;</div><p>Loading viewer...</p></div>' },
             curated: window.CuratedPage || { render: () => '<div class="empty-state"><div class="icon">&#9734;</div><p>Loading curated feed...</p></div>' },
-            export: window.ExportPage || { render: () => '<div class="empty-state"><div class="icon">&#8681;</div><p>Loading export...</p></div>' },
+            data: window.DataPage || { render: () => '<div class="empty-state"><div class="icon">&#9776;</div><p>Loading data...</p></div>' },
             curate: window.CuratePage || { render: () => '<div class="empty-state"><div class="icon">&#9883;</div><p>Loading curation...</p></div>' },
             settings: window.SettingsPage || { render: () => '<div class="empty-state"><div class="icon">&#9881;</div><p>Loading settings...</p></div>' },
         };

@@ -1,11 +1,14 @@
-"""Workspace bootstrap — the user's curation folder.
+"""Workspace bootstrap — the user's Focus Lab folder.
 
-One user-picked folder holds everything: the curator skill, default goals.md,
-the `exports/` subfolder where packs land, and the Claude Code / agent
+One user-picked folder holds everything: collected feeds (`data/`), the
+curator skill, default `goals.md`, and the Claude Code / agent
 auto-discovery glue (`.claude/skills/` symlink, CLAUDE.md, AGENTS.md).
-
 Bootstrapping is ONLY done on explicit user setup — not at app start. This
 way a first-time user isn't surprised by a folder appearing in their home dir.
+
+The workspace is the single source of truth — collections write directly
+into `<workspace>/data/` (no separate app-data dir) and curation reads them
+in place. Packing for sharing is an opt-in step.
 """
 
 import json
@@ -21,43 +24,45 @@ SKILL_NAME = "focus-lab-curator"
 
 CLAUDE_MD = """# Focus Lab Feed workspace
 
-You are working in a Focus Lab Feed workspace. Exports land in `./exports/`,
+You are working in a Focus Lab Feed workspace. Collected feeds live in
+`./data/` (organized as `data/YYYY-MM-DD/job_HHMMSS/<platform>/posts.json`),
 the curator skill lives at `./skills/focus-lab-curator/`, and the user's
 content preferences live in `./goals.md`.
 
 ## Curator skill
 
 When the user asks to curate a feed, follow the instructions in
-`skills/focus-lab-curator/SKILL.md` (also available via `.claude/skills/focus-lab-curator/SKILL.md`).
+`skills/focus-lab-curator/SKILL.md` (also available via
+`.claude/skills/focus-lab-curator/SKILL.md`).
 
 It handles: interactive content-preferences bootstrap (writes `goals.md`),
-scoring posts 0–100 against those preferences, and producing
-`posts.filtered.json` with a strict schema.
+scoring posts 0–100 against those preferences, and producing a filtered
+JSON output the desktop app's **AI Curation** tab can read.
 
 ## Typical workflow
 
-1. The user imports a pack — `cd ./exports/focus-lab-pack-YYYY-MM-DD_HHMMSS/`.
+1. The user collects a feed in the Focus Lab Feed app (lands in `./data/`).
 2. The user says "curate this feed" (or similar).
-3. You use the curator skill to produce `posts.filtered.json` in that pack folder.
-4. The Focus Lab desktop app's **AI Curation** tab picks it up automatically.
+3. You use the curator skill to score the latest job's posts against
+   `./goals.md` and emit a filtered JSON file alongside the data.
+4. The Focus Lab Feed app's **AI Curation** tab picks it up automatically.
 
 ## Goals resolution
 
-The curator skill prefers a pack-local `goals.md` (in the pack folder) over
-the workspace-level `./goals.md`. If neither exists, the skill runs its
-bootstrap flow to interview the user.
+The curator skill reads `./goals.md` from the workspace root. If it's
+missing or empty, it runs a short interview to populate it.
 """
 
 
 AGENTS_MD = """# Focus Lab Feed workspace
 
-Collected-and-exported packs live in `./exports/`. Each pack contains
-`posts.json` and a `media/` folder.
+Collected feeds live in `./data/YYYY-MM-DD/job_HHMMSS/<platform>/`. Each
+platform folder contains `posts.json`, `media/`, and `run_log.json`.
 
-To curate a pack for the Focus Lab Feed viewer, read
+To curate the latest collection for the Focus Lab Feed viewer, read
 `skills/focus-lab-curator/SKILL.md` and follow its instructions. The skill
-detects `goals.md` (pack-local preferred, falls back to workspace-level),
-interviews the user if absent, then produces `posts.filtered.json`.
+reads `./goals.md` (interviewing the user to bootstrap it if missing) and
+emits a filtered JSON file.
 
 Default goals: `./goals.md` in this directory.
 """
@@ -67,30 +72,40 @@ README_MD = """# Focus Lab Feed — Workspace
 
 Everything Focus Lab Feed needs lives here.
 
-- `exports/` — packs land here when you Export from the app.
-- `skills/focus-lab-curator/` — the curator skill for Claude Code / Cursor / Codex.
+- `data/` — collected feeds land here automatically (date / job / platform).
+- `skills/focus-lab-curator/` — the curator tool kit (the skill instructions,
+  `curate.py` for batch scoring, and `viewer.html` for previewing a curated
+  job in a phone-shaped browser).
 - `.claude/skills/focus-lab-curator/` — Claude Code auto-discovery (symlink).
-- `goals.md` — your default content preferences.
+- `goals.md` — your default content preferences (the skill interviews you
+  to fill this in on first use).
 - `CLAUDE.md` / `AGENTS.md` — instructions that point agents at the skill.
 
 ## Flow
 
-1. **Collect** — open the Focus Lab Feed app, run a collection.
-2. **Export** — click *Export for curation* in the app. A pack folder lands in `./exports/`.
-3. **Curate** — cd into the pack, run an agent:
+1. **Collect** — open the Focus Lab Feed app, run a collection. Posts and
+   media land directly in `./data/YYYY-MM-DD/job_HHMMSS/<platform>/`.
+2. **Curate** — open Claude Code (or another agent) in this folder and say
+   "curate the latest feed":
 
-       cd exports/focus-lab-pack-YYYY-MM-DD_HHMMSS
-       claude                         # then say: "curate this feed"
+       cd ~/Focus Lab Feed
+       claude                         # then: "curate the latest feed"
 
-   The skill produces `posts.filtered.json` in the pack folder.
-4. **View** — open the Focus Lab Feed app's **AI Curation** tab. The pack
-   shows up automatically once `posts.filtered.json` is written.
+   On the first run the skill interviews you to populate `goals.md`. After
+   that, it scores posts against your goals and writes a filtered JSON file
+   alongside the data.
+3. **View** — open the Focus Lab Feed app's **AI Curation** tab. Curated
+   results show up automatically.
+
+If you ever want to share a curated job with someone, an "Output as pack"
+action will bundle just `posts.json` + `media/` into a self-contained
+folder. Day-to-day curation doesn't need it.
 
 ## Goals
 
 `goals.md` is your default content preferences — you can edit it by hand,
 or leave it blank and let the curator skill interview you the first time
-you run it in a pack.
+you run it.
 """
 
 
@@ -119,11 +134,12 @@ def bootstrap_workspace(workspace: Path, update_app_files: bool = False) -> dict
     created: list[str] = []
     updated: list[str] = []
 
-    # ---- user-managed ----
-    exports = ws / "exports"
-    if not exports.exists():
-        exports.mkdir()
-        created.append("exports/")
+    # ---- user-managed: data/ — where collections land. Pre-create so the
+    # static file route serves it cleanly even before the first collection.
+    data_dir = ws / "data"
+    if not data_dir.exists():
+        data_dir.mkdir()
+        created.append("data/")
 
     # ---- app-managed: curator skill ----
     src = skill_source_dir()

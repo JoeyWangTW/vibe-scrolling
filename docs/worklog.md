@@ -1,5 +1,40 @@
 # Work Log
 
+## 2026-05-02 - Rename twitter → x
+
+Twitter has been "X" for years; the codebase finally catches up.
+
+- Renamed `src/platforms/twitter/` → `src/platforms/x/` (`git mv`); all imports updated.
+- Slug `"twitter"` → `"x"` everywhere it appeared as an identifier: PLATFORMS lists in `app/api/collection.py` + `src/platforms/__init__.py`, choices in `src/collect.py`, PLATFORM_LOGIN_URLS + PLATFORM_VERIFY in `app/tasks/auth_task.py`, `app/paths.py` default config block, `config.json`, frontend `platform-icons.js` (PATHS / NAMES key, display name "X"), `post-renderer.js`, `viewer.js`, `collection.js`, CSS variables (`--color-x`, `.badge-x`, `.platform-icon-x`), and `skills/focus-lab-curator/SKILL.md` examples.
+- Login URL switched from `twitter.com/login` → `x.com/login`. Existing `still_on_login` patterns (`/login`, `/i/flow/login`) stay valid at x.com.
+- Session file renamed: `session/twitter_state.json` → `session/x_state.json` (in both repo `session/` and `~/Library/Application Support/Focus Lab Feed Collector/session/`).
+- Migrated active workspace data: `~/Documents/vibe-scrolling-data/data/2026-05-02/job_021736/twitter/` → `…/x/`, rewrote `posts.json` (`platform: "twitter"` → `"x"`, `…/twitter/media/…` → `…/x/media/…`), `run_log.json`, and `posts.filtered.json` (including `filter_metadata.platforms` and `platform_counts` keys).
+- Comments referencing the old slug in legacy migration code (`src/storage.py`, `app/api/data.py`) intentionally left — they describe the historical flat-format migration and dropping them would lose context.
+- Old `feed_data/` and the prior workspace's data left untouched per the earlier "leave it" decision.
+
+Verified: `/api/auth/status` returns `x` (connected), `/api/curated/jobs` shows the curated job with `platform_counts.x: 59` and `platforms: [..., 'x', 'youtube']`, `/api/data/runs` lists `2026-05-02/job_021736/x` with 63 posts.
+
+Found-but-not-fixed: media downloader has a race condition when multiple platforms collect in parallel (`_current_run_dir` is a module global). Some X posts in the existing job ended up with media saved into `linkedin/media/` instead of `x/media/`. Pre-existing bug, separate fix.
+
+## 2026-05-02 - Workspace IS the data dir + per-job curation, drop auto-export
+
+Followup to the workspace-as-data-dir refactor. Three things ship together:
+
+- **Curator skill rewritten for per-job, cross-platform curation** (`skills/focus-lab-curator/`, v1.0.0 → v2.0.0). `curate.py` now operates from the workspace root (auto-detects via walking up to find `data/` or `goals.md`), picks the latest job under `data/` (or `--job 2026-05-02/job_HHMMSS`), reads every platform's `posts.json` together, scores them all in one ranking against `goals.md`, and writes a single `posts.filtered.json` at `<workspace>/data/<date>/<job>/`. Drops the orphan-media trim and `--keep-media` / `--drop-videos` flags — data is in place, not packed. SKILL.md rewritten end-to-end (no more "pack" vocabulary, goals are workspace-level only, output contract documents the new shape with `platforms` + `platform_counts` + per-dropped `platform`).
+- **Curated API + UI flipped from packs to jobs.** `/api/curated/packs` → `/api/curated/jobs`; lists every job under `data/` that has `posts.filtered.json`, returns full filter_metadata. `app/static/js/curated.js` now selects by job (date · job_id · platforms label), shows per-platform kept counts in the header ribbon, and serves media via the existing `/feed_data/` route since `local_media_paths` are already relative to the data root. `curation.js` (Curate-with-AI tab) lost its pack picker — agent-launch step now always points at the workspace root and the prompt says "curate the latest feed".
+- **Auto-export ripped out entirely.** `app/api/export.py` deleted; `_maybe_auto_export()` and the `export_curation` plumbing in `collection.py` deleted; `/api/workspace/auto-export` GET/POST deleted; `auto_export` config key dropped; auto-export toggle removed from Settings + Onboarding; `pack_count` / `recent_packs` / `exports_dir` dropped from `/api/workspace` response. Curation reads directly from `data/`, so the duplicate-then-curate dance was buying nothing.
+
+Verified end-to-end on a real job: workspace at `~/Documents/vibe-scrolling-data`, 265 posts across twitter / threads / instagram / linkedin / youtube. `python3 skills/focus-lab-curator/curate.py` ran 14 batches of 20 in 4-way parallel against `claude --print` with Sonnet 4.6, took ~2 min, produced 245 kept / 20 dropped, top 8 results mix all 5 platforms (NASA tweet 73, instagram cinnamoroll 65, threads + linkedin all interleaved). `/api/curated/jobs` lists the job; `/api/curated/jobs/2026-05-02/job_021736` returns 245 posts; `/feed_data/<path>` serves a 12 MB linkedin video correctly.
+
+## 2026-05-02 - LinkedIn collector
+
+- Added `src/platforms/linkedin/` (auth, interceptor, collector) following the same shape as threads/youtube.
+- **Switched from DOM scraping to Voyager API parsing.** Initial DOM approach captured 59 posts but with empty author names and broken counts. The Voyager response shape is actually easy to parse: each response has a flat `included` array of typed entities (`Update`, `Profile`, `SocialActivityCounts`, `VideoPlayMetadata`, ...) keyed by `entityUrn`. Build an in-memory store from `included`, walk every `Update`, and resolve `*foo` URN references (e.g. `*socialDetail` → `SocialDetail` → `*totalSocialActivityCounts` → `SocialActivityCounts`) to get author, text, counts, and media. DOM extraction stays as a fallback if the API ever yields nothing.
+- Author handle extracted from `actor.navigationContext.actionTarget` (handles `/in/`, `/company/`, `/school/` URL forms). Time text from `actor.subDescription.text`. Media URLs built by concatenating `vectorImage.rootUrl` + the largest artifact's `fileIdentifyingUrlPathSegment`. Native videos resolved via `*videoPlayMetadata` → `VideoPlayMetadata.progressiveStreams` (highest-quality progressive stream). Document slides pull the first cover page; article previews pull the headline image. Voyager responses are archived to `raw/voyager_*.json`.
+- Verified end-to-end: 55 posts captured in ~55s with 0 empty authors / 0 empty text / 100% time text / 54/55 with engagement counts / 49/55 with remote media URLs / 72 local media files downloaded.
+- Wired LinkedIn through the rest of the system: `src/platforms/__init__.py` registry, `src/collect.py` CLI choices, `app/api/collection.py` PLATFORMS, `app/tasks/auth_task.py` PLATFORM_LOGIN_URLS + PLATFORM_VERIFY (login URL + still-on-login patterns including `/uas/login` and `/checkpoint`), `app/static/js/{platforms,settings,onboarding,collection}.js`, `post-renderer.js` mention/hashtag links, `app.css` (`--color-linkedin: #0a66c2` + `.badge-linkedin`), and `config.json` defaults.
+- Captured fields: id (`urn:li:activity:*`), text, author name + headline + url, time-ago text (LinkedIn doesn't expose absolute dates in the DOM), likes, comments (mapped to `Post.replies`), reposts, image URLs, video URLs, repost detection with quoted_post, sponsored/promoted flag mapped to `is_ad`.
+
 ## 2026-04-22 - Vibe Scrolling rebrand + gated onboarding
 
 - Renamed app to **Focus Lab — Vibe Scrolling** (browser title, Dock/bundle name, macOS window title, FastAPI title, sidebar logo)
