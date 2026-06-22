@@ -16,7 +16,7 @@
 
 ## Download
 
-**macOS `.dmg`** → [Latest release](https://github.com/JoeyWangTW/focus-lab-feed/releases/latest)
+**macOS `.dmg`** → [Latest release](https://github.com/JoeyWangTW/vibe-scrolling/releases/latest)
 
 1. Download, open the `.dmg`, drag **Focus Lab Feed** into `/Applications`.
 2. First launch: **right-click → Open** (the app isn't code-signed yet, so Gatekeeper shows an "unidentified developer" warning — this only happens once).
@@ -67,7 +67,7 @@ You'd do this if (a) there's no release yet for your macOS version, (b) you want
 ### Clone and run from source (dev mode)
 
 ```bash
-git clone https://github.com/JoeyWangTW/focus-lab-feed.git focus-lab-feed-collector
+git clone https://github.com/JoeyWangTW/vibe-scrolling.git focus-lab-feed-collector
 cd focus-lab-feed-collector
 
 python3 -m venv .venv
@@ -85,8 +85,8 @@ The first launch walks you through connecting your social accounts (they're just
 ```bash
 ./scripts/build-macos.sh
 # produces:
-#   dist/Focus Lab Feed Collector.app
-#   dist/FocusLabFeedCollector.dmg
+#   dist/Focus Lab Feed.app
+#   dist/FocusLabFeed.dmg
 ```
 
 The build script uses [PyInstaller](https://pyinstaller.org) to bundle Python, FastAPI, Playwright's Chromium, the curator skill, and the mobile viewer into a self-contained `.app`. No external dependencies at runtime.
