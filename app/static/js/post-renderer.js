@@ -282,7 +282,9 @@ function setupCarouselDrag(rootSelector) {
             const delta = e.clientX - startX;
             // 1:1 tracking — drag 100px right, scroll 100px left.
             carousel.scrollLeft = startScroll - delta;
-            if (Math.abs(delta) > 5) dragged = true;
+            // 10px of slop so a normal click's jitter isn't read as a drag —
+            // below this the click still falls through to openLightbox.
+            if (Math.abs(delta) > 10) dragged = true;
         });
         // Swallow the click that would otherwise fire after a drag.
         carousel.addEventListener('click', e => {
